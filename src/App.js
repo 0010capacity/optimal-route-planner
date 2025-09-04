@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { NaverMap, Container } from 'react-naver-maps';
-import { searchPlaces } from './api/naverApi';
+import { NaverMap, Container, Marker } from 'react-naver-maps';
+import { searchPlaces, geocodeAddress } from './api/naverApi';
 import './App.css';
 
 function App() {
@@ -9,6 +9,7 @@ function App() {
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedResult, setSelectedResult] = useState(null);
+  const [geocodedLocations, setGeocodedLocations] = useState([]);
 
   const debounceTimeoutRef = useRef(null);
 
@@ -36,6 +37,21 @@ function App() {
       }
     };
   }, [newLocation]);
+
+  useEffect(() => {
+    const geocodeAllLocations = async () => {
+      const geocoded = [];
+      for (const loc of locations) {
+        const coords = await geocodeAddress(loc);
+        if (coords) {
+          geocoded.push({ name: loc, coords });
+        }
+      }
+      setGeocodedLocations(geocoded);
+    };
+
+    geocodeAllLocations();
+  }, [locations]);
 
   const handleAddLocation = () => {
     if (selectedResult) {
@@ -111,7 +127,15 @@ function App() {
               lng: 126.9780,
             }}
             defaultZoom={11}
-          />
+          >
+            {geocodedLocations.map((loc, index) => (
+              <Marker
+                key={index}
+                position={new naver.maps.LatLng(loc.coords.lat, loc.coords.lng)}
+                title={loc.name}
+              />
+            ))}
+          </NaverMap>
         </Container>
       </div>
     </div>
