@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { NaverMap, Container } from 'react-naver-maps';
 import './App.css';
 
 function App() {
@@ -41,10 +42,20 @@ function App() {
 
       <div className="map-section">
         <h2>지도</h2>
-        {/* Naver Map will be rendered here */}
-        <div style={{ width: '100%', height: '400px', backgroundColor: '#f0f0f0', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-          <p>네이버 지도가 표시될 영역</p>
-        </div>
+        <Container
+          style={{
+            width: '100%',
+            height: '400px',
+          }}
+        >
+          <NaverMap
+            defaultCenter={{
+              lat: 37.5665,
+              lng: 126.9780,
+            }}
+            defaultZoom={11}
+          />
+        </Container>
       </div>
     </div>
   );
