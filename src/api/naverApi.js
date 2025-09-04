@@ -93,7 +93,7 @@ export const getDirections = async (coordsArray) => {
     if (data.code === 0 && data.routes && data.routes.length > 0) {
       // Assuming the first route is the primary one
       const route = data.routes[0];
-      const path = route.summary.bbox.map(bbox => ({ lat: bbox[1], lng: bbox[0] })); // This is a simplified path, actual path is in `guide` or `legs`
+      // const path = route.summary.bbox.map(bbox => ({ lat: bbox[1], lng: bbox[0] })); // This is a simplified path, actual path is in `guide` or `legs`
       const totalTime = route.summary.duration; // in milliseconds
       const totalDistance = route.summary.distance; // in meters
 
