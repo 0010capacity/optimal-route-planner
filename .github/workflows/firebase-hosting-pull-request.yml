@@ -16,7 +16,6 @@ jobs:
       - run: npm ci --legacy-peer-deps && npm run build
         env:
           PUBLIC_URL: ./
-        env:
           REACT_APP_NAVER_CLIENT_ID: ${{ secrets.REACT_APP_NAVER_CLIENT_ID }}
           REACT_APP_NAVER_CLIENT_SECRET: ${{ secrets.REACT_APP_NAVER_CLIENT_SECRET }}
       - uses: FirebaseExtended/action-hosting-deploy@v0
