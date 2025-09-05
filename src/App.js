@@ -1,3 +1,4 @@
+/* global naver */
 import React, { useState, useEffect, useRef } from 'react';
 import { NaverMap, Container, Marker, Polyline } from 'react-naver-maps';
 import { searchPlaces, geocodeAddress, getDirections } from './api/naverApi';
