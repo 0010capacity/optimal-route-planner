@@ -3,6 +3,7 @@ const NAVER_CLIENT_SECRET = process.env.REACT_APP_NAVER_CLIENT_SECRET;
 
 // Google Places API를 사용한 장소 검색 (클라이언트 사이드)
 export const searchPlaces = async (query, centerLocation = null) => {
+  console.log('searchPlaces called with centerLocation:', centerLocation);
   if (!query) {
     return [];
   }
@@ -10,8 +11,8 @@ export const searchPlaces = async (query, centerLocation = null) => {
   try {
     // Google Maps API가 로드될 때까지 대기
     let attempts = 0;
-    while (!window.google || !window.google.maps || !window.google.maps.importLibrary) {
-      if (attempts > 50) { // 5초 타임아웃
+    while (!window.google || !window.google.maps || !window.google.maps.importLibrary || !window.googleMapsLoaded) {
+      if (attempts > 100) { // 10초 타임아웃
         console.warn('Google Maps API loading timeout');
         return [];
       }
@@ -27,17 +28,19 @@ export const searchPlaces = async (query, centerLocation = null) => {
       maxResultCount: 10,
     };
 
-    // 지도 중심 좌표가 제공되면 locationBias 추가
-    if (centerLocation && centerLocation.lat && centerLocation.lng) {
-      request.locationBias = {
-        circle: {
-          center: {
-            latitude: centerLocation.lat,
-            longitude: centerLocation.lng,
-          },
-          radius: 5000.0, // 5km 반경
-        },
-      };
+        // 지도 중심 좌표가 제공되면 locationBias 추가
+    if (centerLocation && typeof centerLocation.lat === 'number' && typeof centerLocation.lng === 'number') {
+      console.log('Center location provided but skipping locationBias for now:', centerLocation);
+      // 임시로 locationBias 제거하여 기본 검색 테스트
+      // Google Places API v3의 locationBias 형식이 아직 호환되지 않음
+      // request.locationBias = {
+      //   circle: {
+      //     center: { lat: centerLocation.lat, lng: centerLocation.lng },
+      //     radius: 5000, // 5km 반경
+      //   },
+      // };
+    } else {
+      console.log('Skipping locationBias - invalid centerLocation:', centerLocation);
     }
 
     const { places } = await Place.searchByText(request);
