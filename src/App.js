@@ -15,6 +15,13 @@ function App() {
   const [geocodedLocations, setGeocodedLocations] = useState([]);
   const [optimizedRoute, setOptimizedRoute] = useState(null);
   const [optimizing, setOptimizing] = useState(false);
+  const [draggedIndex, setDraggedIndex] = useState(null);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
+  const [favorites, setFavorites] = useState([]); // 즐겨찾기 목록
+  const [showFavorites, setShowFavorites] = useState(false); // 즐겨찾기 표시 여부
+  const [mapCenter, setMapCenter] = useState({ lat: 37.5665, lng: 126.9780 }); // 지도 중심 좌표
+  const [userLocation, setUserLocation] = useState(null); // 사용자 현재 위치
+  const [mapInstance, setMapInstance] = useState(null); // 지도 인스턴스
 
   const debounceTimeoutRef = useRef(null);
 
@@ -33,7 +40,12 @@ function App() {
 
     setLoading(true);
     debounceTimeoutRef.current = setTimeout(async () => {
-      const results = await searchPlaces(searchQuery);
+      // mapCenter가 유효한지 확인
+      const validCenter = (mapCenter && typeof mapCenter.lat === 'number' && typeof mapCenter.lng === 'number') 
+        ? mapCenter 
+        : { lat: 37.5665, lng: 126.9780 };
+      
+      const results = await searchPlaces(searchQuery, validCenter);
       setSearchResults(results);
       setLoading(false);
     }, 500);
@@ -62,6 +74,46 @@ function App() {
     geocodeAllLocations();
   }, [locations]);
 
+  // localStorage에서 데이터 불러오기
+  useEffect(() => {
+    const savedLocations = localStorage.getItem('routeLocations');
+    if (savedLocations) {
+      try {
+        const parsed = JSON.parse(savedLocations);
+        if (Array.isArray(parsed) && parsed.length >= 2) {
+          setLocations(parsed);
+        }
+      } catch (error) {
+        console.error('Failed to load locations from localStorage:', error);
+      }
+    }
+  }, []);
+
+  // locations 변경 시 localStorage에 저장
+  useEffect(() => {
+    localStorage.setItem('routeLocations', JSON.stringify(locations));
+  }, [locations]);
+
+  // 즐겨찾기 localStorage에서 불러오기
+  useEffect(() => {
+    const savedFavorites = localStorage.getItem('routeFavorites');
+    if (savedFavorites) {
+      try {
+        const parsed = JSON.parse(savedFavorites);
+        if (Array.isArray(parsed)) {
+          setFavorites(parsed);
+        }
+      } catch (error) {
+        console.error('Failed to load favorites from localStorage:', error);
+      }
+    }
+  }, []);
+
+  // 즐겨찾기 변경 시 localStorage에 저장
+  useEffect(() => {
+    localStorage.setItem('routeFavorites', JSON.stringify(favorites));
+  }, [favorites]);
+
   const handleLocationClick = (index) => {
     setEditingIndex(index);
     setCurrentMode('search');
@@ -86,6 +138,101 @@ function App() {
     setEditingIndex(null);
     setSearchQuery('');
     setSearchResults([]);
+  };
+
+  const handleDragStart = (e, index) => {
+    e.stopPropagation();
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', index.toString());
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverIndex(index);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverIndex(null);
+  };
+
+  const handleDrop = (e, dropIndex) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const draggedIndexStr = e.dataTransfer.getData('text/plain');
+    const draggedIndex = parseInt(draggedIndexStr, 10);
+    
+    if (isNaN(draggedIndex) || draggedIndex === dropIndex) {
+      setDragOverIndex(null);
+      return;
+    }
+
+    const newLocations = [...locations];
+    const draggedItem = newLocations[draggedIndex];
+    
+    // 드래그된 항목 제거
+    newLocations.splice(draggedIndex, 1);
+    // 드롭 위치에 삽입
+    newLocations.splice(dropIndex, 0, draggedItem);
+    
+    setLocations(newLocations);
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  // 즐겨찾기 추가
+  const addToFavorites = (location) => {
+    if (location && !favorites.includes(location)) {
+      setFavorites([...favorites, location]);
+    }
+  };
+
+  // 즐겨찾기 삭제
+  const removeFromFavorites = (location) => {
+    setFavorites(favorites.filter(fav => fav !== location));
+  };
+
+  // 즐겨찾기에서 선택
+  const selectFromFavorites = (location) => {
+    if (editingIndex !== null) {
+      const newLocations = [...locations];
+      newLocations[editingIndex] = location;
+      setLocations(newLocations);
+      setCurrentMode('list');
+      setEditingIndex(null);
+    }
+  };
+
+  // 내 위치 가져오기
+  const getCurrentLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          const newLocation = { lat: latitude, lng: longitude };
+          setUserLocation(newLocation);
+          setMapCenter(newLocation);
+        },
+        (error) => {
+          console.error('Error getting current location:', error);
+          alert('현재 위치를 가져올 수 없습니다.');
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 300000, // 5분
+        }
+      );
+    } else {
+      alert('이 브라우저는 위치 서비스를 지원하지 않습니다.');
+    }
   };
 
   const handleOptimizeRoute = async () => {
@@ -137,6 +284,11 @@ function App() {
     setOptimizedRoute(bestRoute);
     setOptimizing(false);
 
+    // 최적화된 순서로 locations 재정렬
+    if (bestRoute) {
+      setLocations(bestRoute.order);
+    }
+
     if (!bestRoute) {
       alert('경로를 찾을 수 없습니다. 장소를 확인해주세요.');
     }
@@ -144,19 +296,28 @@ function App() {
 
   return (
     <div className="App">
-      <h1>Optimal Route Planner</h1>
-
       {currentMode === 'list' ? (
         // 경유지 목록 모드
         <>
           <div className="location-list-section">
-            <h2>경유지 목록</h2>
             <ul className="location-list">
               {locations.map((location, index) => (
-                <li key={index} className="location-item">
-                  <span className="location-label">
-                    {index === 0 ? '출발' : index === locations.length - 1 ? '도착' : `경유지 ${index}`}
-                  </span>
+                <li 
+                  key={index} 
+                  className={`location-item ${index === 0 ? 'start' : index === locations.length - 1 ? 'end' : 'waypoint'} ${draggedIndex === index ? 'dragging' : ''} ${dragOverIndex === index ? 'drag-over' : ''}`}
+                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, index)}
+                >
+                  <div className="location-visual">
+                    <div 
+                      className="location-dot"
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, index)}
+                      onDragEnd={handleDragEnd}
+                    ></div>
+                    <div className="location-line"></div>
+                  </div>
                   <button 
                     className="location-button"
                     onClick={() => handleLocationClick(index)}
@@ -176,19 +337,16 @@ function App() {
                   )}
                 </li>
               ))}
-              <li className="location-item">
-                <button 
-                  className="add-waypoint-button"
-                  onClick={() => {
-                    const newLocations = [...locations];
-                    newLocations.splice(locations.length - 1, 0, ''); // 도착지 앞에 삽입
-                    setLocations(newLocations);
-                  }}
-                >
-                  + 경유지 추가
-                </button>
-              </li>
             </ul>
+            <button 
+              className="add-location-button"
+              onClick={() => {
+                const newLocations = [...locations, '']; // 목록 끝에 새 장소 추가
+                setLocations(newLocations);
+              }}
+            >
+              + 장소 추가
+            </button>
             <button 
               className="optimize-button"
               onClick={handleOptimizeRoute} 
@@ -197,11 +355,13 @@ function App() {
               {optimizing ? '최적화 중...' : '경로 최적화'}
             </button>
             {optimizedRoute && (
-              <div className="optimized-route-info">
-                <h3>최적화된 경로</h3>
-                <p>순서: {optimizedRoute.order.join(' → ')}</p>
-                <p>총 시간: {(optimizedRoute.totalTime / 60000).toFixed(2)} 분</p>
-                <p>총 거리: {(optimizedRoute.totalDistance / 1000).toFixed(2)} km</p>
+              <div className="route-summary">
+                <div className="route-order">
+                  {optimizedRoute.order.join(' → ')}
+                </div>
+                <div className="route-stats">
+                  {(optimizedRoute.totalTime / 60000).toFixed(0)}분 • {(optimizedRoute.totalDistance / 1000).toFixed(1)}km
+                </div>
               </div>
             )}
           </div>
@@ -214,12 +374,38 @@ function App() {
               <button className="back-button" onClick={handleBackToList}>
                 ← 뒤로가기
               </button>
-              <h2>
-                {editingIndex === 0 ? '출발지' : 
-                 editingIndex === locations.length - 1 ? '도착지' : 
-                 `경유지 ${editingIndex}`} 검색
-              </h2>
+              <button 
+                className={`favorites-toggle ${showFavorites ? 'active' : ''}`}
+                onClick={() => setShowFavorites(!showFavorites)}
+              >
+                즐겨찾기 {showFavorites ? '숨기기' : '보기'}
+              </button>
             </div>
+            
+            {showFavorites && favorites.length > 0 && (
+              <div className="favorites-section">
+                <h4>즐겨찾기</h4>
+                <ul className="favorites-list">
+                  {favorites.map((favorite, index) => (
+                    <li key={index} className="favorite-item">
+                      <span 
+                        onClick={() => selectFromFavorites(favorite)}
+                        className="favorite-text"
+                      >
+                        {favorite}
+                      </span>
+                      <button 
+                        className="remove-favorite-button"
+                        onClick={() => removeFromFavorites(favorite)}
+                        title="즐겨찾기에서 제거"
+                      >
+                        ×
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             
             <div className="search-input-section">
               <input
@@ -234,15 +420,27 @@ function App() {
               
               {searchResults.length > 0 && (
                 <ul className="search-results">
-                  {searchResults.map((result, index) => (
-                    <li 
-                      key={index} 
-                      onClick={() => handleSearchResultSelect(result)}
-                      className="search-result-item"
-                    >
-                      {result.title.replace(/<[^>]*>/g, '')}
-                    </li>
-                  ))}
+                  {searchResults.map((result, index) => {
+                    const locationName = result.title.replace(/<[^>]*>/g, '');
+                    const isFavorite = favorites.includes(locationName);
+                    return (
+                      <li key={index} className="search-result-item">
+                        <span 
+                          onClick={() => handleSearchResultSelect(result)}
+                          className="search-result-text"
+                        >
+                          {locationName}
+                        </span>
+                        <button 
+                          className={`favorite-button ${isFavorite ? 'favorited' : ''}`}
+                          onClick={() => isFavorite ? removeFromFavorites(locationName) : addToFavorites(locationName)}
+                          title={isFavorite ? '즐겨찾기에서 제거' : '즐겨찾기에 추가'}
+                        >
+                          {isFavorite ? '★' : '☆'}
+                        </button>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
               
@@ -255,7 +453,15 @@ function App() {
       )}
 
       <div className="map-section">
-        <h2>지도</h2>
+        <div className="map-controls">
+          <button 
+            className="current-location-button"
+            onClick={getCurrentLocation}
+            title="내 위치로 이동"
+          >
+            📍 내 위치
+          </button>
+        </div>
         <Container
           style={{
             width: '100%',
@@ -268,6 +474,9 @@ function App() {
               lng: 126.9780,
             }}
             defaultZoom={11}
+            center={mapCenter}
+            onCenterChanged={(center) => setMapCenter(center)}
+            onMapInitialized={(map) => setMapInstance(map)}
           >
             {geocodedLocations.map((loc, index) => (
               <Marker
@@ -276,6 +485,22 @@ function App() {
                 title={loc.name}
               />
             ))}
+            {userLocation && (
+              <Marker
+                position={new naver.maps.LatLng(userLocation.lat, userLocation.lng)}
+                title="내 위치"
+                icon={{
+                  url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="12" cy="12" r="8" fill="#4285F4" stroke="white" stroke-width="2"/>
+                      <circle cx="12" cy="12" r="3" fill="white"/>
+                    </svg>
+                  `),
+                  size: new naver.maps.Size(24, 24),
+                  anchor: new naver.maps.Point(12, 12),
+                }}
+              />
+            )}
             {optimizedRoute && (
               <Polyline
                 path={optimizedRoute.path.map(p => new naver.maps.LatLng(p.lat, p.lng))}

@@ -2,7 +2,7 @@ const NAVER_CLIENT_ID = process.env.REACT_APP_NAVER_CLIENT_ID;
 const NAVER_CLIENT_SECRET = process.env.REACT_APP_NAVER_CLIENT_SECRET;
 
 // Google Places API를 사용한 장소 검색 (클라이언트 사이드)
-export const searchPlaces = async (query) => {
+export const searchPlaces = async (query, centerLocation = null) => {
   if (!query) {
     return [];
   }
@@ -26,6 +26,19 @@ export const searchPlaces = async (query) => {
       fields: ['displayName', 'formattedAddress', 'location', 'id', 'types', 'businessStatus'],
       maxResultCount: 10,
     };
+
+    // 지도 중심 좌표가 제공되면 locationBias 추가
+    if (centerLocation && centerLocation.lat && centerLocation.lng) {
+      request.locationBias = {
+        circle: {
+          center: {
+            latitude: centerLocation.lat,
+            longitude: centerLocation.lng,
+          },
+          radius: 5000.0, // 5km 반경
+        },
+      };
+    }
 
     const { places } = await Place.searchByText(request);
 
