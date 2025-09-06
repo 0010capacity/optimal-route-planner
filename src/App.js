@@ -6,11 +6,12 @@ import getPermutations from './utils/getPermutations';
 import './App.css';
 
 function App() {
-  const [locations, setLocations] = useState([]);
-  const [newLocation, setNewLocation] = useState('');
+  const [locations, setLocations] = useState(['', '']); // 빈 문자열로 시작
+  const [currentMode, setCurrentMode] = useState('list'); // 'list' or 'search'
+  const [editingIndex, setEditingIndex] = useState(null); // 편집 중인 경유지 인덱스
+  const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [selectedResult, setSelectedResult] = useState(null);
   const [geocodedLocations, setGeocodedLocations] = useState([]);
   const [optimizedRoute, setOptimizedRoute] = useState(null);
   const [optimizing, setOptimizing] = useState(false);
@@ -18,11 +19,13 @@ function App() {
   const debounceTimeoutRef = useRef(null);
 
   useEffect(() => {
+    if (currentMode !== 'search') return;
+    
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
     }
 
-    if (newLocation.trim() === '') {
+    if (searchQuery.trim() === '') {
       setSearchResults([]);
       setLoading(false);
       return;
@@ -30,7 +33,7 @@ function App() {
 
     setLoading(true);
     debounceTimeoutRef.current = setTimeout(async () => {
-      const results = await searchPlaces(newLocation);
+      const results = await searchPlaces(searchQuery);
       setSearchResults(results);
       setLoading(false);
     }, 500);
@@ -40,15 +43,17 @@ function App() {
         clearTimeout(debounceTimeoutRef.current);
       }
     };
-  }, [newLocation]);
+  }, [searchQuery, currentMode]);
 
   useEffect(() => {
     const geocodeAllLocations = async () => {
       const geocoded = [];
       for (const loc of locations) {
-        const coords = await geocodeAddress(loc);
-        if (coords) {
-          geocoded.push({ name: loc, coords });
+        if (loc && loc.trim() !== '') { // 빈 문자열이 아닌 경우만 geocoding
+          const coords = await geocodeAddress(loc);
+          if (coords) {
+            geocoded.push({ name: loc, coords });
+          }
         }
       }
       setGeocodedLocations(geocoded);
@@ -57,23 +62,30 @@ function App() {
     geocodeAllLocations();
   }, [locations]);
 
-  const handleAddLocation = () => {
-    if (selectedResult) {
-      setLocations([...locations, selectedResult.title.replace(/<[^>]*>/g, '')]); // Remove HTML tags
-      setNewLocation('');
-      setSearchResults([]);
-      setSelectedResult(null);
-    } else if (newLocation.trim() !== '') {
-      setLocations([...locations, newLocation.trim()]);
-      setNewLocation('');
+  const handleLocationClick = (index) => {
+    setEditingIndex(index);
+    setCurrentMode('search');
+    setSearchQuery('');
+    setSearchResults([]);
+  };
+
+  const handleSearchResultSelect = (result) => {
+    if (editingIndex !== null) {
+      const newLocations = [...locations];
+      newLocations[editingIndex] = result.title.replace(/<[^>]*>/g, '');
+      setLocations(newLocations);
+      setCurrentMode('list');
+      setEditingIndex(null);
+      setSearchQuery('');
       setSearchResults([]);
     }
   };
 
-  const handleSelectResult = (result) => {
-    setSelectedResult(result);
-    setNewLocation(result.title.replace(/<[^>]*>/g, '')); // Display selected title in input
-    setSearchResults([]); // Clear search results after selection
+  const handleBackToList = () => {
+    setCurrentMode('list');
+    setEditingIndex(null);
+    setSearchQuery('');
+    setSearchResults([]);
   };
 
   const handleOptimizeRoute = async () => {
@@ -93,7 +105,6 @@ function App() {
     let minTime = Infinity;
 
     if (waypoints.length === 0) {
-      // Only start and end, no waypoints to permute
       const route = await getDirections([startPoint.coords, endPoint.coords]);
       if (route) {
         bestRoute = { path: route.path, totalTime: route.totalTime, totalDistance: route.totalDistance, order: [startPoint.name, endPoint.name] };
@@ -135,53 +146,113 @@ function App() {
     <div className="App">
       <h1>Optimal Route Planner</h1>
 
-      <div className="location-input-section">
-        <input
-          type="text"
-          value={newLocation}
-          onChange={(e) => {
-            setNewLocation(e.target.value);
-            setSelectedResult(null); // Clear selected result on new input
-          }}
-          placeholder="장소를 입력하세요"
-        />
-        <button onClick={handleAddLocation}>추가</button>
-
-        {loading && <p>검색 중...</p>}
-        {searchResults.length > 0 && (
-          <ul className="search-results">
-            {searchResults.map((result, index) => (
-              <li key={index} onClick={() => handleSelectResult(result)}>
-                {result.title.replace(/<[^>]*>/g, '')}
+      {currentMode === 'list' ? (
+        // 경유지 목록 모드
+        <>
+          <div className="location-list-section">
+            <h2>경유지 목록</h2>
+            <ul className="location-list">
+              {locations.map((location, index) => (
+                <li key={index} className="location-item">
+                  <span className="location-label">
+                    {index === 0 ? '출발' : index === locations.length - 1 ? '도착' : `경유지 ${index}`}
+                  </span>
+                  <button 
+                    className="location-button"
+                    onClick={() => handleLocationClick(index)}
+                  >
+                    {location || '장소를 선택하세요'}
+                  </button>
+                  {locations.length > 2 && index !== 0 && index !== locations.length - 1 && (
+                    <button 
+                      className="delete-button"
+                      onClick={() => {
+                        const newLocations = locations.filter((_, i) => i !== index);
+                        setLocations(newLocations);
+                      }}
+                    >
+                      ×
+                    </button>
+                  )}
+                </li>
+              ))}
+              <li className="location-item">
+                <button 
+                  className="add-waypoint-button"
+                  onClick={() => {
+                    const newLocations = [...locations];
+                    newLocations.splice(locations.length - 1, 0, ''); // 도착지 앞에 삽입
+                    setLocations(newLocations);
+                  }}
+                >
+                  + 경유지 추가
+                </button>
               </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      <div className="location-list-section">
-        <h2>경유지 목록</h2>
-        {locations.length === 0 ? (
-          <p>장소를 추가해주세요.</p>
-        ) : (
-          <ul>
-            {locations.map((loc, index) => (
-              <li key={index}>{loc}</li>
-            ))}
-          </ul>
-        )}
-        <button onClick={handleOptimizeRoute} disabled={optimizing || locations.length < 2}>
-          {optimizing ? '최적화 중...' : '경로 최적화'}
-        </button>
-        {optimizedRoute && (
-          <div className="optimized-route-info">
-            <h3>최적화된 경로</h3>
-            <p>순서: {optimizedRoute.order.join(' -> ')}</p>
-            <p>총 시간: {(optimizedRoute.totalTime / 60000).toFixed(2)} 분</p>
-            <p>총 거리: {(optimizedRoute.totalDistance / 1000).toFixed(2)} km</p>
+            </ul>
+            <button 
+              className="optimize-button"
+              onClick={handleOptimizeRoute} 
+              disabled={optimizing}
+            >
+              {optimizing ? '최적화 중...' : '경로 최적화'}
+            </button>
+            {optimizedRoute && (
+              <div className="optimized-route-info">
+                <h3>최적화된 경로</h3>
+                <p>순서: {optimizedRoute.order.join(' → ')}</p>
+                <p>총 시간: {(optimizedRoute.totalTime / 60000).toFixed(2)} 분</p>
+                <p>총 거리: {(optimizedRoute.totalDistance / 1000).toFixed(2)} km</p>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </>
+      ) : (
+        // 장소 검색 모드
+        <>
+          <div className="search-section">
+            <div className="search-header">
+              <button className="back-button" onClick={handleBackToList}>
+                ← 뒤로가기
+              </button>
+              <h2>
+                {editingIndex === 0 ? '출발지' : 
+                 editingIndex === locations.length - 1 ? '도착지' : 
+                 `경유지 ${editingIndex}`} 검색
+              </h2>
+            </div>
+            
+            <div className="search-input-section">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="장소를 입력하세요"
+                autoFocus
+              />
+              
+              {loading && <p>검색 중...</p>}
+              
+              {searchResults.length > 0 && (
+                <ul className="search-results">
+                  {searchResults.map((result, index) => (
+                    <li 
+                      key={index} 
+                      onClick={() => handleSearchResultSelect(result)}
+                      className="search-result-item"
+                    >
+                      {result.title.replace(/<[^>]*>/g, '')}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              
+              {searchQuery && !loading && searchResults.length === 0 && (
+                <p className="no-results">검색 결과가 없습니다.</p>
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
       <div className="map-section">
         <h2>지도</h2>
