@@ -6,7 +6,7 @@ export const searchPlaces = async (query) => {
     return [];
   }
 
-  const url = `https://us-central1-optimal-route-planner-0010.cloudfunctions.net/searchPlaces?query=${encodeURIComponent(query)}`;
+  const url = `https://searchplaces-weu5x3oaea-uc.a.run.app?query=${encodeURIComponent(query)}`;
 
   try {
     const response = await fetch(url);
@@ -28,7 +28,7 @@ export const geocodeAddress = async (address) => {
     return null;
   }
 
-  const url = `https://us-central1-optimal-route-planner-0010.cloudfunctions.net/geocodeAddress?address=${encodeURIComponent(address)}`;
+  const url = `https://geocodeaddress-weu5x3oaea-uc.a.run.app?address=${encodeURIComponent(address)}`;
 
   try {
     const response = await fetch(url);

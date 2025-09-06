@@ -143,3 +143,48 @@ export const geocodeAddress = onRequest((request, response) => {
       response.status(500).json({error: "Failed to fetch data"});
     });
 });
+
+export const searchPlaces = onRequest((request, response) => {
+  // CORS 허용
+  response.set("Access-Control-Allow-Origin", "*");
+  response.set("Access-Control-Allow-Methods", "GET, POST");
+  response.set("Access-Control-Allow-Headers", "Content-Type");
+
+  if (request.method === "OPTIONS") {
+    response.status(204).send("");
+    return;
+  }
+
+  const query = request.query.query as string;
+  if (!query) {
+    response.status(400).json({error: "Query parameter is required"});
+    return;
+  }
+
+  const NAVER_CLIENT_ID = process.env.REACT_APP_NAVER_CLIENT_ID;
+  const NAVER_CLIENT_SECRET = process.env.REACT_APP_NAVER_CLIENT_SECRET;
+
+  if (!NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) {
+    response.status(500).json({error: "NAVER API credentials not configured"});
+    return;
+  }
+
+  const url = `https://naveropenapi.apigw.ntruss.com/map-place/v1/search?query=${
+    encodeURIComponent(query)}&coordinate=127.1058342,37.359708&display=10`;
+
+  fetch(url, {
+    method: "GET",
+    headers: {
+      "X-NCP-APIGW-API-KEY-ID": NAVER_CLIENT_ID,
+      "X-NCP-APIGW-API-KEY": NAVER_CLIENT_SECRET,
+    },
+  })
+    .then((res) => res.json())
+    .then((data) => {
+      response.json(data);
+    })
+    .catch((error) => {
+      logger.error("Error fetching from Naver Search API:", error);
+      response.status(500).json({error: "Failed to fetch data"});
+    });
+});
