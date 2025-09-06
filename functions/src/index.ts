@@ -1,7 +1,6 @@
 import {setGlobalOptions} from "firebase-functions";
 import {onRequest} from "firebase-functions/https";
 import * as logger from "firebase-functions/logger";
-import * as functions from "firebase-functions";
 
 setGlobalOptions({maxInstances: 10});
 
@@ -22,10 +21,8 @@ export const searchPlaces = onRequest((request, response) => {
     return;
   }
 
-  const NAVER_CLIENT_ID = functions.config().naver?.client_id ||
-    process.env.REACT_APP_NAVER_CLIENT_ID;
-  const NAVER_CLIENT_SECRET = functions.config().naver?.client_secret ||
-    process.env.REACT_APP_NAVER_CLIENT_SECRET;
+  const NAVER_CLIENT_ID = process.env.REACT_APP_NAVER_CLIENT_ID;
+  const NAVER_CLIENT_SECRET = process.env.REACT_APP_NAVER_CLIENT_SECRET;
 
   if (!NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) {
     response.status(500).json({error: "NAVER API credentials not configured"});
