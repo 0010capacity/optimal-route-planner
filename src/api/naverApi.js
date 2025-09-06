@@ -3,7 +3,6 @@ const NAVER_CLIENT_SECRET = process.env.REACT_APP_NAVER_CLIENT_SECRET;
 
 // Google Places API를 사용한 장소 검색 (REST API 사용)
 export const searchPlaces = async (query, centerLocation = null) => {
-  console.log('searchPlaces called with query:', query, 'centerLocation:', centerLocation);
   if (!query) {
     return [];
   }
@@ -19,7 +18,6 @@ export const searchPlaces = async (query, centerLocation = null) => {
 
     // 지도 중심 좌표가 제공되면 locationBias 사용 (Text Search에서는 locationRestriction 대신)
     if (centerLocation && typeof centerLocation.lat === 'number' && typeof centerLocation.lng === 'number') {
-      console.log('Setting locationBias with center:', centerLocation);
       requestBody.locationBias = {
         circle: {
           center: {
@@ -29,7 +27,6 @@ export const searchPlaces = async (query, centerLocation = null) => {
           radius: 1000, // 1km 반경
         },
       };
-      console.log('locationBias requestBody:', JSON.stringify(requestBody, null, 2));
     }
 
     const response = await fetch(url, {
@@ -47,20 +44,11 @@ export const searchPlaces = async (query, centerLocation = null) => {
     }
 
     const data = await response.json();
-    console.log('Places API response:', data);
-    console.log('Number of results:', data.places ? data.places.length : 0);
 
     if (data.places && data.places.length > 0) {
       return data.places.map((place, index) => {
         const displayName = place.displayName?.text || place.displayName;
         const fullAddress = place.formattedAddress || '';
-
-        console.log(`Place ${index} details:`, {
-          displayName,
-          fullAddress,
-          types: place.types,
-          raw: place
-        });
 
         let title;
         if (displayName) {
@@ -99,9 +87,10 @@ export const searchPlaces = async (query, centerLocation = null) => {
     return null;
   }
 
-  const url = `https://us-central1-my-optimal-route-planner.cloudfunctions.net/geocodeAddress?address=${encodeURIComponent(address)}`;
-
   try {
+    const apiKey = 'AIzaSyCuI4OfM-oPbnKoes_uaYfUWZ2f-btjgtQ';
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`;
+
     const response = await fetch(url);
 
     if (!response.ok) {
@@ -109,13 +98,13 @@ export const searchPlaces = async (query, centerLocation = null) => {
     }
 
     const data = await response.json();
-    if (data.addresses && data.addresses.length > 0) {
-      const { x, y } = data.addresses[0];
-      return { lat: parseFloat(y), lng: parseFloat(x) };
+    if (data.status === 'OK' && data.results && data.results.length > 0) {
+      const location = data.results[0].geometry.location;
+      return { lat: location.lat, lng: location.lng };
     }
     return null;
   } catch (error) {
-    console.error('Error fetching from Geocoding API:', error);
+    console.error('Error fetching from Google Geocoding API:', error);
     return null;
   }
 };

@@ -1,6 +1,5 @@
 /* global naver */
 import React, { useState, useEffect, useRef } from 'react';
-import { NaverMap, Container, Marker, Polyline } from 'react-naver-maps';
 import { searchPlaces, geocodeAddress, getDirections } from './api/naverApi';
 import getPermutations from './utils/getPermutations';
 import './App.css';
@@ -22,6 +21,8 @@ function App() {
   const [mapCenter, setMapCenter] = useState({ lat: 37.5665, lng: 126.9780 }); // 지도 중심 좌표
   const [userLocation, setUserLocation] = useState(null); // 사용자 현재 위치
   const [mapInstance, setMapInstance] = useState(null); // 지도 인스턴스
+  const mapRef = useRef(null); // 지도 컨테이너 ref
+  const markersRef = useRef([]); // 마커들을 저장할 ref
 
   const debounceTimeoutRef = useRef(null);
 
@@ -112,8 +113,165 @@ function App() {
 
   // 지도 중심 변경 시 실제 지도 업데이트
   useEffect(() => {
-    console.log('Map center updated to:', mapCenter);
   }, [mapCenter]);
+
+  // 지도 생성 및 관리
+  useEffect(() => {
+    if (!mapRef.current || !window.naver || !window.naver.maps) return;
+
+    // 지도 생성
+    const map = new window.naver.maps.Map(mapRef.current, {
+      center: new window.naver.maps.LatLng(mapCenter.lat, mapCenter.lng),
+      zoom: 13,
+      minZoom: 7,
+      maxZoom: 21
+    });
+
+    setMapInstance(map);
+
+    // 지도 중심 변경 이벤트 리스너
+    window.naver.maps.Event.addListener(map, 'center_changed', () => {
+      const center = map.getCenter();
+      const googleCenter = {
+        lat: center.lat(),
+        lng: center.lng()
+      };
+      setMapCenter(googleCenter);
+    });
+
+    return () => {
+      // 클린업
+      if (map) {
+        // 기존 마커들 제거
+        markersRef.current.forEach(marker => marker.setMap(null));
+        markersRef.current = [];
+      }
+    };
+  }, []); // 빈 dependency array - 컴포넌트 마운트 시 한 번만 실행
+
+  // 지도 중심 업데이트
+  useEffect(() => {
+    if (mapInstance && mapCenter) {
+      mapInstance.setCenter(new window.naver.maps.LatLng(mapCenter.lat, mapCenter.lng));
+    }
+  }, [mapCenter, mapInstance]);
+
+  // 마커들 업데이트
+  useEffect(() => {
+    if (!mapInstance) return;
+
+    // 기존 마커들 제거
+    markersRef.current.forEach(marker => marker.setMap(null));
+    markersRef.current = [];
+
+    // 경유지 마커들 추가
+    geocodedLocations.forEach((loc, index) => {
+      // 마커 색상과 심볼 결정
+      let markerColor = '#2196f3'; // 기본: 파란색 (경유지)
+      let markerSymbol = '●'; // 기본: 경유지 심볼
+
+      if (index === 0) {
+        markerColor = '#4caf50'; // 출발지: 녹색
+        markerSymbol = '▶';
+      } else if (index === geocodedLocations.length - 1) {
+        markerColor = '#f44336'; // 도착지: 빨간색
+        markerSymbol = '■';
+      }
+
+      const marker = new window.naver.maps.Marker({
+        position: new window.naver.maps.LatLng(loc.coords.lat, loc.coords.lng),
+        map: mapInstance,
+        title: loc.name,
+        icon: {
+          content: `
+            <div style="
+              background: ${markerColor};
+              color: white;
+              border-radius: 50%;
+              width: 28px;
+              height: 28px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 14px;
+              font-weight: bold;
+              border: 3px solid white;
+              box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+              position: relative;
+            ">${markerSymbol}</div>
+          `,
+          size: new window.naver.maps.Size(28, 28),
+          anchor: new window.naver.maps.Point(14, 14),
+        }
+      });
+      markersRef.current.push(marker);
+    });
+
+    // 사용자 위치 마커 추가
+    if (userLocation) {
+      const userMarker = new window.naver.maps.Marker({
+        position: new window.naver.maps.LatLng(userLocation.lat, userLocation.lng),
+        map: mapInstance,
+        title: "내 위치",
+        icon: {
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="12" r="8" fill="#4285F4" stroke="white" stroke-width="2"/>
+              <circle cx="12" cy="12" r="3" fill="white"/>
+            </svg>
+          `),
+          size: new window.naver.maps.Size(24, 24),
+          anchor: new window.naver.maps.Point(12, 12),
+        }
+      });
+      markersRef.current.push(userMarker);
+    }
+
+    // 검색 결과 마커들 추가
+    searchResults.slice(0, 10).forEach((result, index) => {
+      const resultNumber = index + 1;
+      const locationName = result.title.replace(/<[^>]*>/g, '');
+      const resultCoords = {
+        lat: parseFloat(result.mapy) / 10000000,
+        lng: parseFloat(result.mapx) / 10000000
+      };
+
+      const searchMarker = new window.naver.maps.Marker({
+        position: new window.naver.maps.LatLng(resultCoords.lat, resultCoords.lng),
+        map: mapInstance,
+        title: `${resultNumber}. ${locationName}`,
+        icon: {
+          content: `
+            <div style="
+              background: #4285F4;
+              color: white;
+              border-radius: 50%;
+              width: 24px;
+              height: 24px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 12px;
+              font-weight: bold;
+              border: 2px solid white;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            ">${resultNumber}</div>
+          `,
+          size: new window.naver.maps.Size(24, 24),
+          anchor: new window.naver.maps.Point(12, 12),
+        }
+      });
+
+      // 마커 클릭 이벤트
+      window.naver.maps.Event.addListener(searchMarker, 'click', () => {
+        handleSearchResultSelect(result);
+        moveMapToLocation(resultCoords);
+      });
+
+      markersRef.current.push(searchMarker);
+    });
+
+  }, [geocodedLocations, userLocation, searchResults, mapInstance]);
 
   const handleLocationClick = (index) => {
     setEditingIndex(index);
@@ -213,13 +371,17 @@ function App() {
 
   // 검색 결과 위치로 지도 이동
   const moveMapToLocation = (coords) => {
-    console.log('Moving map to:', coords);
     setMapCenter(coords);
-    
-    // mapInstance가 있으면 직접 지도 중심 이동 (가장 확실한 방법)
+
+    // 직접 mapInstance 사용
     if (mapInstance) {
-      console.log('Setting map center directly with mapInstance');
-      mapInstance.setCenter(new naver.maps.LatLng(coords.lat, coords.lng));
+      try {
+        mapInstance.setCenter(new window.naver.maps.LatLng(coords.lat, coords.lng));
+      } catch (error) {
+        console.error('Error in setCenter:', error);
+      }
+    } else {
+      console.warn('mapInstance is not available');
     }
   };
 
@@ -486,104 +648,13 @@ function App() {
             📍 내 위치
           </button>
         </div>
-        <Container
+        <div
+          ref={mapRef}
           style={{
             width: '100%',
-            height: window.innerWidth <= 768 ? '300px' : '400px', // 모바일에서는 300px, 데스크톱에서는 400px
+            height: window.innerWidth <= 768 ? '300px' : '400px',
           }}
-        >
-          <NaverMap
-            defaultCenter={{
-              lat: 37.5665,
-              lng: 126.9780,
-            }}
-            defaultZoom={13}
-            center={mapCenter}
-            minZoom={7}
-            maxZoom={21}
-            onCenterChanged={(center) => {
-              console.log('Map center changed to:', center);
-              // NaverMap 좌표 형식을 Google Places API 형식으로 변환
-              const googleCenter = {
-                lat: center.y || center._lat || center.lat,
-                lng: center.x || center._lng || center.lng
-              };
-              console.log('Converted to Google format:', googleCenter);
-              setMapCenter(googleCenter);
-            }}
-            onMapInitialized={(map) => {
-              console.log('Map initialized successfully:', map);
-              console.log('Map instance type:', typeof map);
-              setMapInstance(map);
-            }}
-          >
-            {geocodedLocations.map((loc, index) => (
-              <Marker
-                key={index}
-                position={new naver.maps.LatLng(loc.coords.lat, loc.coords.lng)}
-                title={loc.name}
-              />
-            ))}
-            {userLocation && (
-              <Marker
-                position={new naver.maps.LatLng(userLocation.lat, userLocation.lng)}
-                title="내 위치"
-                icon={{
-                  url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <circle cx="12" cy="12" r="8" fill="#4285F4" stroke="white" stroke-width="2"/>
-                      <circle cx="12" cy="12" r="3" fill="white"/>
-                    </svg>
-                  `),
-                  size: new naver.maps.Size(24, 24),
-                  anchor: new naver.maps.Point(12, 12),
-                }}
-              />
-            )}
-            {searchResults.slice(0, 10).map((result, index) => {
-              const resultNumber = index + 1;
-              const locationName = result.title.replace(/<[^>]*>/g, '');
-              const resultCoords = {
-                lat: parseFloat(result.mapy) / 10000000,
-                lng: parseFloat(result.mapx) / 10000000
-              };
-              
-              return (
-                <Marker
-                  key={`search-${index}`}
-                  position={new naver.maps.LatLng(resultCoords.lat, resultCoords.lng)}
-                  title={`${resultNumber}. ${locationName}`}
-                  icon={{
-                    content: `
-                      <div style="
-                        background: #4285F4;
-                        color: white;
-                        border-radius: 50%;
-                        width: 24px;
-                        height: 24px;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        font-size: 12px;
-                        font-weight: bold;
-                        border: 2px solid white;
-                        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-                      ">${resultNumber}</div>
-                    `,
-                    size: new naver.maps.Size(24, 24),
-                    anchor: new naver.maps.Point(12, 12),
-                  }}
-                  onClick={() => {
-                    // 핀 클릭 시 해당 검색 결과를 선택하고 지도 중심 이동
-                    const selectedResult = searchResults[index];
-                    handleSearchResultSelect(selectedResult);
-                    moveMapToLocation(resultCoords);
-                  }}
-                />
-              );
-            })}
-          </NaverMap>
-        </Container>
+        />
       </div>
     </div>
   );
