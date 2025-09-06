@@ -157,7 +157,7 @@ function App() {
           <ul className="search-results">
             {searchResults.map((result, index) => (
               <li key={index} onClick={() => handleSelectResult(result)}>
-                {result.title.replace(/<[^>]*>/g, '')} ({result.address})
+                {result.title.replace(/<[^>]*>/g, '')}
               </li>
             ))}
           </ul>

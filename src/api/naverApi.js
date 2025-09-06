@@ -30,15 +30,28 @@ export const searchPlaces = async (query) => {
     const { places } = await Place.searchByText(request);
 
     if (places && places.length > 0) {
-      return places.map(place => ({
-        title: place.displayName?.text || place.formattedAddress,
-        category: "장소",
-        telephone: "",
-        address: place.formattedAddress,
-        roadAddress: place.formattedAddress,
-        mapx: (place.location?.lng * 10000000).toString(),
-        mapy: (place.location?.lat * 10000000).toString(),
-      }));
+      return places.map(place => {
+        // 장소명 우선 사용, 없으면 간단한 주소 형식 사용
+        const displayName = place.displayName?.text;
+        const fullAddress = place.formattedAddress || '';
+        
+        // 주소에서 불필요한 부분 제거하고 간단하게 표시
+        const simpleAddress = fullAddress
+          .replace(/^대한민국\s*/, '') // "대한민국" 제거
+          .split(' ')
+          .slice(0, 3) // 시/군/구까지만 표시
+          .join(' ');
+        
+        return {
+          title: displayName || simpleAddress,
+          category: "장소",
+          telephone: "",
+          address: fullAddress,
+          roadAddress: fullAddress,
+          mapx: (place.location?.lng * 10000000).toString(),
+          mapy: (place.location?.lat * 10000000).toString(),
+        };
+      });
     }
     
     return [];
