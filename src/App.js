@@ -110,10 +110,10 @@ function App() {
     }
   }, []);
 
-  // 즐겨찾기 변경 시 localStorage에 저장
+  // 지도 중심 변경 시 실제 지도 업데이트
   useEffect(() => {
-    localStorage.setItem('routeFavorites', JSON.stringify(favorites));
-  }, [favorites]);
+    console.log('Map center updated to:', mapCenter);
+  }, [mapCenter]);
 
   const handleLocationClick = (index) => {
     setEditingIndex(index);
@@ -211,6 +211,18 @@ function App() {
     }
   };
 
+  // 검색 결과 위치로 지도 이동
+  const moveMapToLocation = (coords) => {
+    console.log('Moving map to:', coords);
+    setMapCenter(coords);
+    
+    // mapInstance가 있으면 직접 지도 중심 이동 (가장 확실한 방법)
+    if (mapInstance) {
+      console.log('Setting map center directly with mapInstance');
+      mapInstance.setCenter(new naver.maps.LatLng(coords.lat, coords.lng));
+    }
+  };
+
   // 내 위치 가져오기
   const getCurrentLocation = () => {
     if (navigator.geolocation) {
@@ -219,7 +231,7 @@ function App() {
           const { latitude, longitude } = position.coords;
           const newLocation = { lat: latitude, lng: longitude };
           setUserLocation(newLocation);
-          setMapCenter(newLocation);
+          moveMapToLocation(newLocation); // 지도 중심도 내 위치로 이동
         },
         (error) => {
           console.error('Error getting current location:', error);
@@ -421,13 +433,24 @@ function App() {
               
               {searchResults.length > 0 && (
                 <ul className="search-results">
-                  {searchResults.map((result, index) => {
+                  {searchResults.slice(0, 10).map((result, index) => {
                     const locationName = result.title.replace(/<[^>]*>/g, '');
                     const isFavorite = favorites.includes(locationName);
+                    const resultNumber = index + 1;
+                    
                     return (
                       <li key={index} className="search-result-item">
+                        <span className="result-number">{resultNumber}</span>
                         <span 
-                          onClick={() => handleSearchResultSelect(result)}
+                          onClick={() => {
+                            handleSearchResultSelect(result);
+                            // 검색 결과 위치로 지도 중심 이동
+                            const resultCoords = {
+                              lat: parseFloat(result.mapy) / 10000000,
+                              lng: parseFloat(result.mapx) / 10000000
+                            };
+                            moveMapToLocation(resultCoords);
+                          }}
                           className="search-result-text"
                         >
                           {locationName}
@@ -466,7 +489,7 @@ function App() {
         <Container
           style={{
             width: '100%',
-            height: '400px',
+            height: window.innerWidth <= 768 ? '300px' : '400px', // 모바일에서는 300px, 데스크톱에서는 400px
           }}
         >
           <NaverMap
@@ -474,8 +497,10 @@ function App() {
               lat: 37.5665,
               lng: 126.9780,
             }}
-            defaultZoom={11}
+            defaultZoom={13}
             center={mapCenter}
+            minZoom={7}
+            maxZoom={21}
             onCenterChanged={(center) => {
               console.log('Map center changed to:', center);
               // NaverMap 좌표 형식을 Google Places API 형식으로 변환
@@ -486,7 +511,11 @@ function App() {
               console.log('Converted to Google format:', googleCenter);
               setMapCenter(googleCenter);
             }}
-            onMapInitialized={(map) => setMapInstance(map)}
+            onMapInitialized={(map) => {
+              console.log('Map initialized successfully:', map);
+              console.log('Map instance type:', typeof map);
+              setMapInstance(map);
+            }}
           >
             {geocodedLocations.map((loc, index) => (
               <Marker
@@ -511,14 +540,48 @@ function App() {
                 }}
               />
             )}
-            {optimizedRoute && (
-              <Polyline
-                path={optimizedRoute.path.map(p => new naver.maps.LatLng(p.lat, p.lng))}
-                strokeColor="#5347AA"
-                strokeOpacity={0.8}
-                strokeWeight={6}
-              />
-            )}
+            {searchResults.slice(0, 10).map((result, index) => {
+              const resultNumber = index + 1;
+              const locationName = result.title.replace(/<[^>]*>/g, '');
+              const resultCoords = {
+                lat: parseFloat(result.mapy) / 10000000,
+                lng: parseFloat(result.mapx) / 10000000
+              };
+              
+              return (
+                <Marker
+                  key={`search-${index}`}
+                  position={new naver.maps.LatLng(resultCoords.lat, resultCoords.lng)}
+                  title={`${resultNumber}. ${locationName}`}
+                  icon={{
+                    content: `
+                      <div style="
+                        background: #4285F4;
+                        color: white;
+                        border-radius: 50%;
+                        width: 24px;
+                        height: 24px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 12px;
+                        font-weight: bold;
+                        border: 2px solid white;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                      ">${resultNumber}</div>
+                    `,
+                    size: new naver.maps.Size(24, 24),
+                    anchor: new naver.maps.Point(12, 12),
+                  }}
+                  onClick={() => {
+                    // 핀 클릭 시 해당 검색 결과를 선택하고 지도 중심 이동
+                    const selectedResult = searchResults[index];
+                    handleSearchResultSelect(selectedResult);
+                    moveMapToLocation(resultCoords);
+                  }}
+                />
+              );
+            })}
           </NaverMap>
         </Container>
       </div>
