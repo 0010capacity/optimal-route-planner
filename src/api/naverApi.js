@@ -28,19 +28,13 @@ export const geocodeAddress = async (address) => {
     return null;
   }
 
-  const url = `https://naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode?query=${encodeURIComponent(address)}`;
+  const url = `https://us-central1-optimal-route-planner-0010.cloudfunctions.net/geocodeAddress?address=${encodeURIComponent(address)}`;
 
   try {
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'X-NCP-APIGW-API-KEY-ID': NAVER_CLIENT_ID,
-        'X-NCP-APIGW-API-KEY': NAVER_CLIENT_SECRET,
-      },
-    });
+    const response = await fetch(url);
 
     if (!response.ok) {
-      throw new Error(`Naver Geocoding API error: ${response.statusText}`);
+      throw new Error(`Geocoding API error: ${response.statusText}`);
     }
 
     const data = await response.json();
@@ -50,7 +44,7 @@ export const geocodeAddress = async (address) => {
     }
     return null;
   } catch (error) {
-    console.error('Error fetching from Naver Geocoding API:', error);
+    console.error('Error fetching from Geocoding API:', error);
     return null;
   }
 };
