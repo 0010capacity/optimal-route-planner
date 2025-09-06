@@ -10,9 +10,9 @@ export const searchPlaces = async (query) => {
   try {
     // Google Maps API가 로드될 때까지 대기
     let attempts = 0;
-    while (!window.google || !window.google.maps || !window.google.maps.places) {
+    while (!window.google || !window.google.maps || !window.google.maps.importLibrary) {
       if (attempts > 50) { // 5초 타임아웃
-        console.warn('Google Maps Places API loading timeout');
+        console.warn('Google Maps API loading timeout');
         return [];
       }
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -25,10 +25,6 @@ export const searchPlaces = async (query) => {
       textQuery: query,
       fields: ['displayName', 'formattedAddress', 'location', 'id'],
       maxResultCount: 10,
-      locationBias: {
-        center: { lat: 37.5665, lng: 126.9780 }, // 서울 중심
-        radius: 100000, // 100km 반경
-      },
     };
 
     const { places } = await Place.searchByText(request);
