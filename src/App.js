@@ -45,6 +45,7 @@ function App() {
         ? mapCenter 
         : { lat: 37.5665, lng: 126.9780 };
       
+      console.log('Searching with center:', validCenter, 'query:', searchQuery);
       const results = await searchPlaces(searchQuery, validCenter);
       setSearchResults(results);
       setLoading(false);
@@ -55,7 +56,7 @@ function App() {
         clearTimeout(debounceTimeoutRef.current);
       }
     };
-  }, [searchQuery, currentMode]);
+  }, [searchQuery, currentMode, mapCenter]); // mapCenter 추가
 
   useEffect(() => {
     const geocodeAllLocations = async () => {
@@ -475,7 +476,16 @@ function App() {
             }}
             defaultZoom={11}
             center={mapCenter}
-            onCenterChanged={(center) => setMapCenter(center)}
+            onCenterChanged={(center) => {
+              console.log('Map center changed to:', center);
+              // NaverMap 좌표 형식을 Google Places API 형식으로 변환
+              const googleCenter = {
+                lat: center.y || center._lat || center.lat,
+                lng: center.x || center._lng || center.lng
+              };
+              console.log('Converted to Google format:', googleCenter);
+              setMapCenter(googleCenter);
+            }}
             onMapInitialized={(map) => setMapInstance(map)}
           >
             {geocodedLocations.map((loc, index) => (
