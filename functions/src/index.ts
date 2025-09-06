@@ -4,6 +4,29 @@ import * as logger from "firebase-functions/logger";
 
 setGlobalOptions({maxInstances: 10});
 
+interface Coordinate {
+  lat: number;
+  lng: number;
+}
+
+interface RouteStep {
+  coords: number[][];
+}
+
+interface RouteLeg {
+  steps: RouteStep[];
+}
+
+interface RouteSummary {
+  duration: number;
+  distance: number;
+}
+
+interface Route {
+  summary: RouteSummary;
+  legs: RouteLeg[];
+}
+
 export const getDirections = onRequest((request, response) => {
   // CORS 허용
   response.set("Access-Control-Allow-Origin", "*");
@@ -33,7 +56,7 @@ export const getDirections = onRequest((request, response) => {
   const goal = `${coordsArray[coordsArray.length - 1].lng},${
     coordsArray[coordsArray.length - 1].lat}`;
   const waypoints = coordsArray.slice(1, coordsArray.length - 1)
-    .map((coord: any) => `${coord.lng},${coord.lat}`).join("|");
+    .map((coord: Coordinate) => `${coord.lng},${coord.lat}`).join("|");
 
   let url = `https://naveropenapi.apigw.ntruss.com/map-direction/v1/driving?start=${start}&goal=${goal}`;
   if (waypoints) {
@@ -50,12 +73,15 @@ export const getDirections = onRequest((request, response) => {
     .then((res) => res.json())
     .then((data) => {
       if (data.code === 0 && data.routes && data.routes.length > 0) {
-        const route = data.routes[0];
+        const route: Route = data.routes[0];
         const totalTime = route.summary.duration;
         const totalDistance = route.summary.distance;
-        const fullPath = route.legs.flatMap((leg: any) =>
-          leg.steps.flatMap((step: any) =>
-            step.coords.map((coord: any) => ({lat: coord[1], lng: coord[0]}))
+        const fullPath = route.legs.flatMap((leg: RouteLeg) =>
+          leg.steps.flatMap((step: RouteStep) =>
+            step.coords.map((coord: number[]) => ({
+              lat: coord[1],
+              lng: coord[0],
+            }))
           )
         );
         response.json({

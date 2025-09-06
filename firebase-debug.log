@@ -1,0 +1,21 @@
+[debug] [2025-09-06T06:15:29.239Z] ----------------------------------------------------------------------
+[debug] [2025-09-06T06:15:29.241Z] Command:       /opt/homebrew/Cellar/node/24.7.0/bin/node /opt/homebrew/bin/firebase init
+[debug] [2025-09-06T06:15:29.241Z] CLI Version:   14.15.2
+[debug] [2025-09-06T06:15:29.241Z] Platform:      darwin
+[debug] [2025-09-06T06:15:29.241Z] Node Version:  v24.7.0
+[debug] [2025-09-06T06:15:29.241Z] Time:          Sat Sep 06 2025 15:15:29 GMT+0900 (Korean Standard Time)
+[debug] [2025-09-06T06:15:29.241Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-09-06T06:15:29.243Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-09-06T06:15:29.243Z] > authorizing via signed-in user (0010capacity@gmail.com)
+[info] 
+     ######## #### ########  ######## ########     ###     ######  ########
+     ##        ##  ##     ## ##       ##     ##  ##   ##  ##       ##
+     ######    ##  ########  ######   ########  #########  ######  ######
+     ##        ##  ##    ##  ##       ##     ## ##     ##       ## ##
+     ##       #### ##     ## ######## ########  ##     ##  ######  ########
+
+You're about to initialize a Firebase project in this directory:
+
+  /Users/won/Documents/GitHub/optimal-route-planner
+
