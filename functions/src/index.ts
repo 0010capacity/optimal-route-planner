@@ -4,7 +4,7 @@ import * as logger from "firebase-functions/logger";
 
 setGlobalOptions({maxInstances: 10});
 
-export const searchPlaces = onRequest((request, response) => {
+export const getDirections = onRequest((request, response) => {
   // CORS 허용
   response.set("Access-Control-Allow-Origin", "*");
   response.set("Access-Control-Allow-Methods", "GET, POST");
@@ -15,9 +15,9 @@ export const searchPlaces = onRequest((request, response) => {
     return;
   }
 
-  const query = request.query.query as string;
-  if (!query) {
-    response.status(400).json({error: "Query parameter is required"});
+  const coordsArray = request.body.coordsArray;
+  if (!coordsArray || coordsArray.length < 2) {
+    response.status(400).json({error: "At least two coordinates required"});
     return;
   }
 
@@ -29,22 +29,46 @@ export const searchPlaces = onRequest((request, response) => {
     return;
   }
 
-  const url = `https://openapi.naver.com/v1/search/local.json?query=${
-    encodeURIComponent(query)}&display=5`;
+  const start = `${coordsArray[0].lng},${coordsArray[0].lat}`;
+  const goal = `${coordsArray[coordsArray.length - 1].lng},${
+    coordsArray[coordsArray.length - 1].lat}`;
+  const waypoints = coordsArray.slice(1, coordsArray.length - 1)
+    .map((coord: any) => `${coord.lng},${coord.lat}`).join("|");
+
+  let url = `https://naveropenapi.apigw.ntruss.com/map-direction/v1/driving?start=${start}&goal=${goal}`;
+  if (waypoints) {
+    url += `&waypoints=${waypoints}`;
+  }
 
   fetch(url, {
     method: "GET",
     headers: {
-      "X-Naver-Client-Id": NAVER_CLIENT_ID,
-      "X-Naver-Client-Secret": NAVER_CLIENT_SECRET,
+      "X-NCP-APIGW-API-KEY-ID": NAVER_CLIENT_ID,
+      "X-NCP-APIGW-API-KEY": NAVER_CLIENT_SECRET,
     },
   })
     .then((res) => res.json())
     .then((data) => {
-      response.json(data);
+      if (data.code === 0 && data.routes && data.routes.length > 0) {
+        const route = data.routes[0];
+        const totalTime = route.summary.duration;
+        const totalDistance = route.summary.distance;
+        const fullPath = route.legs.flatMap((leg: any) =>
+          leg.steps.flatMap((step: any) =>
+            step.coords.map((coord: any) => ({lat: coord[1], lng: coord[0]}))
+          )
+        );
+        response.json({
+          path: fullPath,
+          totalTime,
+          totalDistance,
+        });
+      } else {
+        response.status(404).json({error: "No route found"});
+      }
     })
     .catch((error) => {
-      logger.error("Error fetching from Naver Search API:", error);
+      logger.error("Error fetching from NAVER Directions API:", error);
       response.status(500).json({error: "Failed to fetch data"});
     });
 });
