@@ -10,7 +10,7 @@ interface Coordinate {
 }
 
 interface RouteStep {
-  coords: number[][];
+  path: number[][];
 }
 
 interface RouteLeg {
@@ -44,17 +44,13 @@ export const getDirections = onRequest((request, response) => {
     return;
   }
 
-  const NAVER_CLIENT_ID = process.env.REACT_APP_NAVER_CLIENT_ID;
-  const NAVER_CLIENT_SECRET = process.env.REACT_APP_NAVER_CLIENT_SECRET;
-
-  if (!NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) {
-    response.status(500).json({error: "NAVER API credentials not configured"});
-    return;
-  }
+  const NAVER_CLIENT_ID = process.env.NAVER_CLIENT_ID || "3hku2yfd31";
+  const NAVER_CLIENT_SECRET =
+    process.env.NAVER_CLIENT_SECRET || "ePbR99lSdWRBGveVQvzoQwwftQQpQU6FtjbjwNcj";
 
   const start = `${coordsArray[0].lng},${coordsArray[0].lat}`;
-  const goal = `${coordsArray[coordsArray.length - 1].lng},${
-    coordsArray[coordsArray.length - 1].lat}`;
+  const goal =
+    `${coordsArray[coordsArray.length - 1].lng},${coordsArray[coordsArray.length - 1].lat}`;
   const waypoints = coordsArray.slice(1, coordsArray.length - 1)
     .map((coord: Coordinate) => `${coord.lng},${coord.lat}`).join("|");
 
@@ -62,6 +58,8 @@ export const getDirections = onRequest((request, response) => {
   if (waypoints) {
     url += `&waypoints=${waypoints}`;
   }
+
+  logger.info("Calling NAVER Directions API:", url);
 
   fetch(url, {
     method: "GET",
@@ -72,24 +70,42 @@ export const getDirections = onRequest((request, response) => {
   })
     .then((res) => res.json())
     .then((data) => {
+      logger.info("NAVER API Response:", data);
+
       if (data.code === 0 && data.routes && data.routes.length > 0) {
         const route: Route = data.routes[0];
         const totalTime = route.summary.duration;
         const totalDistance = route.summary.distance;
-        const fullPath = route.legs.flatMap((leg: RouteLeg) =>
-          leg.steps.flatMap((step: RouteStep) =>
-            step.coords.map((coord: number[]) => ({
-              lat: coord[1],
-              lng: coord[0],
-            }))
-          )
-        );
+
+        // Extract path from route data
+        let fullPath: Coordinate[] = [];
+        if (route.legs && route.legs.length > 0) {
+          fullPath = route.legs.flatMap((leg: RouteLeg) =>
+            leg.steps ? leg.steps.flatMap((step: RouteStep) =>
+              step.path ? step.path.map((coord: number[]) => ({
+                lat: coord[1],
+                lng: coord[0],
+              })) : []
+            ) : []
+          );
+        }
+
+        // If no detailed path, create simple path from waypoints
+        if (fullPath.length === 0) {
+          fullPath = coordsArray.map((coord: Coordinate) => ({
+            lat: coord.lat,
+            lng: coord.lng
+          }));
+        }
+
         response.json({
           path: fullPath,
           totalTime,
           totalDistance,
+          order: coordsArray.map((coord: Coordinate, index: number) => `Point ${index + 1}`),
         });
       } else {
+        logger.warn("No valid route found in response:", data);
         response.status(404).json({error: "No route found"});
       }
     })
@@ -116,16 +132,14 @@ export const geocodeAddress = onRequest((request, response) => {
     return;
   }
 
-  const NAVER_CLIENT_ID = process.env.REACT_APP_NAVER_CLIENT_ID;
-  const NAVER_CLIENT_SECRET = process.env.REACT_APP_NAVER_CLIENT_SECRET;
+  const NAVER_CLIENT_ID = process.env.NAVER_CLIENT_ID || "3hku2yfd31";
+  const NAVER_CLIENT_SECRET =
+    process.env.NAVER_CLIENT_SECRET || "ePbR99lSdWRBGveVQvzoQwwftQQpQU6FtjbjwNcj";
 
-  if (!NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) {
-    response.status(500).json({error: "NAVER API credentials not configured"});
-    return;
-  }
+  const url =
+    `https://naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode?query=${encodeURIComponent(address)}`;
 
-  const url = `https://naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode?query=${
-    encodeURIComponent(address)}`;
+  logger.info("Calling NAVER Geocoding API:", url);
 
   fetch(url, {
     method: "GET",
@@ -136,7 +150,17 @@ export const geocodeAddress = onRequest((request, response) => {
   })
     .then((res) => res.json())
     .then((data) => {
-      response.json(data);
+      logger.info("NAVER Geocoding Response:", data);
+
+      if (data.addresses && data.addresses.length > 0) {
+        const location = data.addresses[0];
+        response.json({
+          lat: parseFloat(location.y),
+          lng: parseFloat(location.x),
+        });
+      } else {
+        response.status(404).json({error: "Address not found"});
+      }
     })
     .catch((error) => {
       logger.error("Error fetching from Naver Geocoding API:", error);

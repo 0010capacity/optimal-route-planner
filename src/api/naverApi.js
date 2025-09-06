@@ -1,5 +1,5 @@
-const NAVER_CLIENT_ID = process.env.REACT_APP_NAVER_CLIENT_ID;
-const NAVER_CLIENT_SECRET = process.env.REACT_APP_NAVER_CLIENT_SECRET;
+const NAVER_CLIENT_ID = process.env.REACT_APP_NAVER_CLIENT_ID || 'your_naver_client_id_here';
+const NAVER_CLIENT_SECRET = process.env.REACT_APP_NAVER_CLIENT_SECRET || 'your_naver_client_secret_here';
 
 // Google Places API를 사용한 장소 검색 (REST API 사용)
 export const searchPlaces = async (query, centerLocation = null) => {
@@ -84,28 +84,32 @@ export const searchPlaces = async (query, centerLocation = null) => {
   }
 };export const geocodeAddress = async (address) => {
   if (!address) {
+    console.log('No address provided to geocode');
     return null;
   }
 
+  console.log('Geocoding address:', address);
+
+  // Firebase Functions를 통한 Naver Geocoding API 호출
   try {
-    const apiKey = 'AIzaSyCuI4OfM-oPbnKoes_uaYfUWZ2f-btjgtQ';
-    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`;
+    const firebaseFunctionUrl = `https://us-central1-optimal-route-planner.cloudfunctions.net/geocodeAddress?address=${encodeURIComponent(address)}`;
 
-    const response = await fetch(url);
+    console.log('Calling Firebase Function for geocoding:', firebaseFunctionUrl);
 
-    if (!response.ok) {
-      throw new Error(`Geocoding API error: ${response.statusText}`);
+    const response = await fetch(firebaseFunctionUrl);
+    console.log('Firebase Function response status:', response.status);
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Firebase Function geocoding response:', data);
+
+      if (data.lat && data.lng) {
+        console.log('Geocoded location via Firebase:', data);
+        return { lat: data.lat, lng: data.lng };
+      }
     }
-
-    const data = await response.json();
-    if (data.status === 'OK' && data.results && data.results.length > 0) {
-      const location = data.results[0].geometry.location;
-      return { lat: location.lat, lng: location.lng };
-    }
-    return null;
   } catch (error) {
-    console.error('Error fetching from Google Geocoding API:', error);
-    return null;
+    console.error('Error with Firebase Function geocoding:', error);
   }
 };
 
@@ -115,52 +119,34 @@ export const getDirections = async (coordsArray) => {
     return null;
   }
 
-  const start = `${coordsArray[0].lng},${coordsArray[0].lat}`;
-  const goal = `${coordsArray[coordsArray.length - 1].lng},${coordsArray[coordsArray.length - 1].lat}`;
-  const waypoints = coordsArray.slice(1, coordsArray.length - 1).map(coord => `${coord.lng},${coord.lat}`).join('|');
+  console.log('Getting directions for coords:', coordsArray);
 
-  let url = `https://naveropenapi.apigw.ntruss.com/map-direction/v1/driving?start=${start}&goal=${goal}`;
-  if (waypoints) {
-    url += `&waypoints=${waypoints}`;
-  }
-
+  // Firebase Functions를 통한 Naver Directions API 호출
   try {
-    const response = await fetch(url, {
-      method: 'GET',
+    const firebaseFunctionUrl = `https://us-central1-optimal-route-planner.cloudfunctions.net/getDirections`;
+
+    console.log('Calling Firebase Function for directions:', firebaseFunctionUrl);
+
+    const response = await fetch(firebaseFunctionUrl, {
+      method: 'POST',
       headers: {
-        'X-NCP-APIGW-API-KEY-ID': NAVER_CLIENT_ID,
-        'X-NCP-APIGW-API-KEY': NAVER_CLIENT_SECRET,
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({ coordsArray }),
     });
 
-    if (!response.ok) {
-      throw new Error(`Naver Directions API error: ${response.statusText}`);
+    console.log('Firebase Function response status:', response.status);
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Firebase Function directions response:', data);
+
+      if (data.path && data.totalTime && data.totalDistance) {
+        console.log('Real directions received via Firebase:', data);
+        return data;
+      }
     }
-
-    const data = await response.json();
-    if (data.code === 0 && data.routes && data.routes.length > 0) {
-      // Assuming the first route is the primary one
-      const route = data.routes[0];
-      // const path = route.summary.bbox.map(bbox => ({ lat: bbox[1], lng: bbox[0] })); // This is a simplified path, actual path is in `guide` or `legs`
-      const totalTime = route.summary.duration; // in milliseconds
-      const totalDistance = route.summary.distance; // in meters
-
-      // For detailed path, you might need to iterate through legs and sections
-      const fullPath = route.legs.flatMap(leg =>
-        leg.steps.flatMap(step =>
-          step.coords.map(coord => ({ lat: coord[1], lng: coord[0] }))
-        )
-      );
-
-      return {
-        path: fullPath,
-        totalTime,
-        totalDistance,
-      };
-    }
-    return null;
   } catch (error) {
-    console.error('Error fetching from Naver Directions API:', error);
-    return null;
+    console.error('Error with Firebase Function directions:', error);
   }
 };
