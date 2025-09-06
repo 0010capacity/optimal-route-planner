@@ -23,27 +23,48 @@ export const searchPlaces = async (query) => {
     
     const request = {
       textQuery: query,
-      fields: ['displayName', 'formattedAddress', 'location', 'id'],
+      fields: ['displayName', 'formattedAddress', 'location', 'id', 'types', 'businessStatus'],
       maxResultCount: 10,
     };
 
     const { places } = await Place.searchByText(request);
 
+    console.log('Places API response:', places); // 디버깅용
+
     if (places && places.length > 0) {
-      return places.map(place => {
-        // 장소명 우선 사용, 없으면 간단한 주소 형식 사용
-        const displayName = place.displayName?.text;
+      return places.map((place, index) => {
+        // 다양한 이름 필드 확인
+        const displayName = place.displayName?.text || place.displayName;
+        const name = place.name;
         const fullAddress = place.formattedAddress || '';
         
-        // 주소에서 불필요한 부분 제거하고 간단하게 표시
-        const simpleAddress = fullAddress
-          .replace(/^대한민국\s*/, '') // "대한민국" 제거
-          .split(' ')
-          .slice(0, 3) // 시/군/구까지만 표시
-          .join(' ');
+        console.log(`Place ${index} details:`, {
+          displayName,
+          name,
+          fullAddress,
+          types: place.types,
+          raw: place
+        });
+        
+        let title;
+        if (displayName) {
+          title = displayName;
+        } else if (name) {
+          title = name;
+        } else {
+          // 검색어 + 간단한 주소 조합
+          const cleanAddress = fullAddress.replace(/^대한민국\s*/, '');
+          const addressParts = cleanAddress.split(' ');
+          
+          if (addressParts.length >= 2) {
+            title = `${query} (${addressParts[0]} ${addressParts[1]})`;
+          } else {
+            title = `${query} (${cleanAddress})`;
+          }
+        }
         
         return {
-          title: displayName || simpleAddress,
+          title: title,
           category: "장소",
           telephone: "",
           address: fullAddress,
