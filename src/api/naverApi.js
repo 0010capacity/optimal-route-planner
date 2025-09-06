@@ -1,24 +1,53 @@
 const NAVER_CLIENT_ID = process.env.REACT_APP_NAVER_CLIENT_ID;
 const NAVER_CLIENT_SECRET = process.env.REACT_APP_NAVER_CLIENT_SECRET;
 
+// Google Places API를 사용한 장소 검색 (클라이언트 사이드)
 export const searchPlaces = async (query) => {
   if (!query) {
     return [];
   }
 
-  const url = `https://searchplaces-weu5x3oaea-uc.a.run.app?query=${encodeURIComponent(query)}`;
-
   try {
-    const response = await fetch(url);
-
-    if (!response.ok) {
-      throw new Error(`Search API error: ${response.statusText}`);
+    // Google Maps API가 로드될 때까지 대기
+    let attempts = 0;
+    while (!window.google || !window.google.maps || !window.google.maps.places) {
+      if (attempts > 50) { // 5초 타임아웃
+        console.warn('Google Maps Places API loading timeout');
+        return [];
+      }
+      await new Promise(resolve => setTimeout(resolve, 100));
+      attempts++;
     }
 
-    const data = await response.json();
-    return data.items || [];
+    const { Place } = await window.google.maps.importLibrary("places");
+    
+    const request = {
+      textQuery: query,
+      fields: ['displayName', 'formattedAddress', 'location', 'id'],
+      maxResultCount: 10,
+      locationBias: {
+        center: { lat: 37.5665, lng: 126.9780 }, // 서울 중심
+        radius: 100000, // 100km 반경
+      },
+    };
+
+    const { places } = await Place.searchByText(request);
+
+    if (places && places.length > 0) {
+      return places.map(place => ({
+        title: place.displayName?.text || place.formattedAddress,
+        category: "장소",
+        telephone: "",
+        address: place.formattedAddress,
+        roadAddress: place.formattedAddress,
+        mapx: (place.location?.lng * 10000000).toString(),
+        mapy: (place.location?.lat * 10000000).toString(),
+      }));
+    }
+    
+    return [];
   } catch (error) {
-    console.error('Error fetching from Search API:', error);
+    console.error('Error fetching from Google Places API:', error);
     return [];
   }
 };
@@ -28,7 +57,7 @@ export const geocodeAddress = async (address) => {
     return null;
   }
 
-  const url = `https://geocodeaddress-weu5x3oaea-uc.a.run.app?address=${encodeURIComponent(address)}`;
+  const url = `https://us-central1-my-optimal-route-planner.cloudfunctions.net/geocodeAddress?address=${encodeURIComponent(address)}`;
 
   try {
     const response = await fetch(url);

@@ -5,6 +5,11 @@ import { searchPlaces, geocodeAddress, getDirections } from './api/naverApi';
 import getPermutations from './utils/getPermutations';
 import './App.css';
 
+// Google Maps API 초기화 함수를 전역에 등록
+window.initGoogleMaps = function() {
+  console.log('Google Maps API loaded successfully');
+};
+
 function App() {
   const [locations, setLocations] = useState([]);
   const [newLocation, setNewLocation] = useState('');
