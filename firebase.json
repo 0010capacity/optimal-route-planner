@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "site": "optimal-route-planner",
+    "site": "optimal-route-planner-0010",
     "public": "build",
     "ignore": [
       "firebase.json",
@@ -14,15 +14,21 @@
       }
     ]
   },
-  "functions": {
-    "source": "functions",
-    "ignore": [
-      "node_modules",
-      ".git",
-      "firebase-debug.log",
-      "firebase-debug.*.log",
-      "*.local"
-    ],
-    "predeploy": []
-  }
+  "functions": [
+    {
+      "source": "functions",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run lint",
+        "npm --prefix \"$RESOURCE_DIR\" run build"
+      ],
+      "codebase": "default"
+    }
+  ]
 }
