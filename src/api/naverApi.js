@@ -6,25 +6,19 @@ export const searchPlaces = async (query) => {
     return [];
   }
 
-  const url = `https://openapi.naver.com/v1/search/local.json?query=${encodeURIComponent(query)}&display=5`;
+  const url = `https://us-central1-optimal-route-planner-0010.cloudfunctions.net/searchPlaces?query=${encodeURIComponent(query)}`;
 
   try {
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'X-Naver-Client-Id': NAVER_CLIENT_ID,
-        'X-Naver-Client-Secret': NAVER_CLIENT_SECRET,
-      },
-    });
+    const response = await fetch(url);
 
     if (!response.ok) {
-      throw new Error(`Naver API error: ${response.statusText}`);
+      throw new Error(`Search API error: ${response.statusText}`);
     }
 
     const data = await response.json();
-    return data.items;
+    return data.items || [];
   } catch (error) {
-    console.error('Error fetching from Naver Search API:', error);
+    console.error('Error fetching from Search API:', error);
     return [];
   }
 };
