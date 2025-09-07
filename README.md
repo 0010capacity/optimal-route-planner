@@ -171,7 +171,7 @@ npm run build
 firebase deploy
 ```
 
-**배포된 애플리케이션**: [https://optimal-route-planner.web.app](https://optimal-route-planner.web.app)
+**배포된 애플리케이션**: [https://my-optimal-route-planner.web.app](https://my-optimal-route-planner.web.app)
 
 ### Firebase 설정
 - **Hosting**: 정적 사이트 호스팅
