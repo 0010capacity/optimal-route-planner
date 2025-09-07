@@ -82,64 +82,59 @@ function App() {
     geocodeAllLocations();
   }, [locations]);
 
-  // 자동 경로 계산 (개별 구간 계산 포함)
+  // 자동 경로 계산 (개별 구간 계산만 사용)
   useEffect(() => {
     const fetchRoute = async () => {
       if (isOptimizing) return; // 최적화 중일 때는 자동 계산 건너뛰기
       
       if (geocodedLocations.length >= 2) {
-        const coordsArray = geocodedLocations.map(loc => loc.coords);
-        const namesArray = geocodedLocations.map(loc => loc.name);
-        const result = await getDirections(coordsArray, namesArray);
-        if (result) {
-          // 자동 경로에서도 개별 구간 계산 수행
-          if (geocodedLocations.length > 2) {
-            const actualSegmentTimes = [];
-            const actualSegmentDistances = [];
+        // 개별 구간 계산으로만 경로 데이터 생성
+        const actualSegmentTimes = [];
+        const actualSegmentDistances = [];
+        let fullPath = [];
 
-            console.log('Auto route: Getting individual segment data...');
-            
-            for (let i = 0; i < geocodedLocations.length - 1; i++) {
-              const segmentStart = geocodedLocations[i];
-              const segmentEnd = geocodedLocations[i + 1];
-              
-              const segmentCoordsArray = [segmentStart.coords, segmentEnd.coords];
-              const segmentNamesArray = [segmentStart.name, segmentEnd.name];
-              
-              console.log(`Auto route segment ${i}: ${segmentStart.name} → ${segmentEnd.name}`);
-              
-              const segmentResult = await getDirections(segmentCoordsArray, segmentNamesArray);
-              if (segmentResult) {
-                actualSegmentTimes.push(segmentResult.totalTime);
-                actualSegmentDistances.push(segmentResult.totalDistance);
-                console.log(`Auto route segment ${i}: ${(segmentResult.totalTime/60000).toFixed(1)}min, ${(segmentResult.totalDistance/1000).toFixed(1)}km`);
-              } else {
-                // Equal distribution as fallback
-                const numSegments = geocodedLocations.length - 1;
-                actualSegmentTimes.push(Math.round(result.totalTime / numSegments));
-                actualSegmentDistances.push(Math.round(result.totalDistance / numSegments));
-                console.log(`Auto route segment ${i}: Using equal distribution fallback`);
-              }
+        console.log('Auto route: Getting individual segment data only...');
+        
+        for (let i = 0; i < geocodedLocations.length - 1; i++) {
+          const segmentStart = geocodedLocations[i];
+          const segmentEnd = geocodedLocations[i + 1];
+          
+          const segmentCoordsArray = [segmentStart.coords, segmentEnd.coords];
+          const segmentNamesArray = [segmentStart.name, segmentEnd.name];
+          
+          console.log(`Auto route segment ${i}: ${segmentStart.name} → ${segmentEnd.name}`);
+          
+          const segmentResult = await getDirections(segmentCoordsArray, segmentNamesArray);
+          if (segmentResult) {
+            actualSegmentTimes.push(segmentResult.totalTime);
+            actualSegmentDistances.push(segmentResult.totalDistance);
+            // 경로 포인트 합치기 (첫 번째 구간이 아니면 첫 포인트 제외)
+            if (i === 0) {
+              fullPath = [...segmentResult.path];
+            } else {
+              fullPath = [...fullPath, ...segmentResult.path.slice(1)];
             }
-
-            // Use actual individual segment totals
-            const totalActualTime = actualSegmentTimes.reduce((sum, time) => sum + time, 0);
-            const totalActualDistance = actualSegmentDistances.reduce((sum, dist) => sum + dist, 0);
-            
-            console.log(`Auto route actual totals: ${(totalActualTime/60000).toFixed(1)}min, ${(totalActualDistance/1000).toFixed(1)}km`);
-
-            setOptimizedRoute({
-              ...result,
-              segmentTimes: actualSegmentTimes,
-              segmentDistances: actualSegmentDistances,
-              totalTime: totalActualTime,
-              totalDistance: totalActualDistance
-            });
+            console.log(`Auto route segment ${i}: ${(segmentResult.totalTime/60000).toFixed(1)}min, ${(segmentResult.totalDistance/1000).toFixed(1)}km`);
           } else {
-            // 2개 지점일 때는 그대로 사용
-            setOptimizedRoute(result);
+            console.log(`Auto route segment ${i}: API call failed`);
+            return; // 실패시 전체 계산 중단
           }
         }
+
+        // 총 시간과 거리 계산
+        const totalActualTime = actualSegmentTimes.reduce((sum, time) => sum + time, 0);
+        const totalActualDistance = actualSegmentDistances.reduce((sum, dist) => sum + dist, 0);
+        
+        console.log(`Auto route actual totals: ${(totalActualTime/60000).toFixed(1)}min, ${(totalActualDistance/1000).toFixed(1)}km`);
+
+        setOptimizedRoute({
+          path: fullPath,
+          segmentTimes: actualSegmentTimes,
+          segmentDistances: actualSegmentDistances,
+          totalTime: totalActualTime,
+          totalDistance: totalActualDistance,
+          order: geocodedLocations.map((_, index) => index) // 순서대로 인덱스 배열 생성
+        });
       } else {
         setOptimizedRoute(null);
       }
@@ -239,11 +234,16 @@ function App() {
       const waypoints = validLocations.slice(1, -1);
 
       if (waypoints.length === 0) {
-        const coordsArray = validLocations.map(loc => loc.coords);
-        const namesArray = validLocations.map(loc => loc.name);
-        const result = await getDirections(coordsArray, namesArray);
-        if (result) {
-          setOptimizedRoute(result);
+        // 2개 지점만 있을 때도 개별 구간 계산 사용
+        const segmentResult = await getDirections([start.coords, end.coords], [start.name, end.name]);
+        if (segmentResult) {
+          setOptimizedRoute({
+            path: segmentResult.path,
+            totalTime: segmentResult.totalTime,
+            totalDistance: segmentResult.totalDistance,
+            segmentTimes: [segmentResult.totalTime],
+            segmentDistances: [segmentResult.totalDistance]
+          });
         }
         return;
       }
@@ -252,75 +252,69 @@ function App() {
       let bestRoute = null;
       let bestTime = Infinity;
 
+      console.log('Optimizing route with individual segment calculations...');
+
       for (const perm of permutations) {
-        const coordsArray = [start.coords, ...perm.map(w => w.coords), end.coords];
-        const namesArray = [start.name, ...perm.map(w => w.name), end.name];
-        const result = await getDirections(coordsArray, namesArray);
-        if (result && result.totalTime < bestTime) {
-          bestTime = result.totalTime;
+        const currentLocations = [start, ...perm, end];
+        
+        // 개별 구간별로 계산하여 총 시간 구하기
+        let totalTime = 0;
+        let totalDistance = 0;
+        let segmentTimes = [];
+        let segmentDistances = [];
+        let fullPath = [];
+        let validRoute = true;
+
+        for (let i = 0; i < currentLocations.length - 1; i++) {
+          const segmentStart = currentLocations[i];
+          const segmentEnd = currentLocations[i + 1];
+          
+          const coordsArray = [segmentStart.coords, segmentEnd.coords];
+          const namesArray = [segmentStart.name, segmentEnd.name];
+          
+          const segmentResult = await getDirections(coordsArray, namesArray);
+          if (segmentResult) {
+            totalTime += segmentResult.totalTime;
+            totalDistance += segmentResult.totalDistance;
+            segmentTimes.push(segmentResult.totalTime);
+            segmentDistances.push(segmentResult.totalDistance);
+            
+            // 경로 포인트 합치기
+            if (i === 0) {
+              fullPath = [...segmentResult.path];
+            } else {
+              fullPath = [...fullPath, ...segmentResult.path.slice(1)];
+            }
+          } else {
+            validRoute = false;
+            break;
+          }
+        }
+
+        if (validRoute && totalTime < bestTime) {
+          bestTime = totalTime;
           bestRoute = {
-            ...result,
+            path: fullPath,
+            totalTime: totalTime,
+            totalDistance: totalDistance,
+            segmentTimes: segmentTimes,
+            segmentDistances: segmentDistances,
             waypointsOrder: perm
           };
         }
       }
 
       if (bestRoute) {
-        // Get individual segment data for actual times and distances
-        const finalLocations = [start, ...bestRoute.waypointsOrder, end];
-        const actualSegmentTimes = [];
-        const actualSegmentDistances = [];
-
-        console.log('Getting individual segment data for ACTUAL times and distances...');
-        
-        for (let i = 0; i < finalLocations.length - 1; i++) {
-          const segmentStart = finalLocations[i];
-          const segmentEnd = finalLocations[i + 1];
-          
-          const coordsArray = [segmentStart.coords, segmentEnd.coords];
-          const namesArray = [segmentStart.name, segmentEnd.name];
-          
-          console.log(`Getting individual segment ${i}: ${segmentStart.name} → ${segmentEnd.name}`);
-          
-          const segmentResult = await getDirections(coordsArray, namesArray);
-          if (segmentResult) {
-            actualSegmentTimes.push(segmentResult.totalTime);
-            actualSegmentDistances.push(segmentResult.totalDistance);
-            console.log(`Individual segment ${i}: ${(segmentResult.totalTime/60000).toFixed(1)}min, ${(segmentResult.totalDistance/1000).toFixed(1)}km`);
-          } else {
-            // Equal distribution as fallback
-            const numSegments = finalLocations.length - 1;
-            actualSegmentTimes.push(Math.round(bestRoute.totalTime / numSegments));
-            actualSegmentDistances.push(Math.round(bestRoute.totalDistance / numSegments));
-            console.log(`Individual segment ${i}: Using equal distribution fallback`);
-          }
-        }
-
-        // Use actual individual segment data - no proportional distribution
-        const totalActualTime = actualSegmentTimes.reduce((sum, time) => sum + time, 0);
-        const totalActualDistance = actualSegmentDistances.reduce((sum, dist) => sum + dist, 0);
-        
-        console.log(`Actual individual segment totals: ${(totalActualTime/60000).toFixed(1)}min, ${(totalActualDistance/1000).toFixed(1)}km`);
-        console.log(`Best route totals (waypoint optimized): ${(bestRoute.totalTime/60000).toFixed(1)}min, ${(bestRoute.totalDistance/1000).toFixed(1)}km`);
-
-        // Use actual individual segment times and distances - NO DISTRIBUTION
-        const finalSegmentTimes = actualSegmentTimes;
-        const finalSegmentDistances = actualSegmentDistances;
-
-        console.log('Final ACTUAL segments (no distribution):');
-        finalSegmentTimes.forEach((time, i) => {
-          console.log(`Segment ${i}: ${(time/60000).toFixed(1)}min, ${(finalSegmentDistances[i]/1000).toFixed(1)}km`);
+        console.log(`Best route found: ${(bestRoute.totalTime/60000).toFixed(1)}min, ${(bestRoute.totalDistance/1000).toFixed(1)}km`);
+        console.log('Best route segments:');
+        bestRoute.segmentTimes.forEach((time, i) => {
+          console.log(`Segment ${i}: ${(time/60000).toFixed(1)}min, ${(bestRoute.segmentDistances[i]/1000).toFixed(1)}km`);
         });
 
         const newLocations = [start, ...bestRoute.waypointsOrder, end];
         setLocations(newLocations);
         setOptimizedRoute({
           ...bestRoute,
-          segmentTimes: finalSegmentTimes,
-          segmentDistances: finalSegmentDistances,
-          // Use actual individual segment totals instead of waypoint optimized totals
-          totalTime: totalActualTime,
-          totalDistance: totalActualDistance,
           order: [0, ...bestRoute.waypointsOrder.map((_, idx) => idx + 1), bestRoute.waypointsOrder.length + 1]
         });
       } else {

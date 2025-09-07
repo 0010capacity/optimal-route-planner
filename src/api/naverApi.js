@@ -1,10 +1,52 @@
 import { isValidCoordinateArray } from './utils.js';
 
-const NAVER_CLIENT_ID = process.env.REACT_APP_NAVER_CLIENT_ID || 'your_naver_client_id_here';
-const NAVER_CLIENT_SECRET = process.env.REACT_APP_NAVER_CLIENT_SECRET || 'your_naver_client_secret_here';
+// NAVER Directions 5 API 사용
+const NAVER_CLIENT_ID = process.env.REACT_APP_NAVER_CLIENT_ID;
+const NAVER_CLIENT_SECRET = process.env.REACT_APP_NAVER_CLIENT_SECRET;
 
-// NAVER Maps API 관련 함수들
-// 지오코딩, 경로 탐색 기능
+// Directions API를 Firebase Functions을 통해 호출 (CORS 문제 해결)
+export const getDirections = async (coordsArray, namesArray) => {
+  if (!isValidCoordinateArray(coordsArray)) {
+    console.error('Invalid coordinates array:', coordsArray);
+    return null;
+  }
+
+  try {
+    console.log(`Getting directions for coords:`, coordsArray);
+    
+    const firebaseUrl = 'https://asia-northeast3-my-optimal-route-planner.cloudfunctions.net/getDirections';
+    console.log('Calling Firebase Function for directions:', firebaseUrl);
+    
+    const response = await fetch(firebaseUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        coordsArray: coordsArray,
+        namesArray: namesArray
+      })
+    });
+
+    if (!response.ok) {
+      console.error('Firebase Function error:', response.status, response.statusText);
+      return null;
+    }
+
+    const data = await response.json();
+    console.log('Firebase Function directions response:', data);
+    console.log('Segment times:', data.segmentTimes);
+    console.log('Segment distances:', data.segmentDistances);
+    console.log('Total time:', data.totalTime);
+    console.log('Total distance:', data.totalDistance);
+
+    return data;
+    
+  } catch (error) {
+    console.error('Error getting directions:', error);
+    return null;
+  }
+};
 
 // WGS84 좌표를 TM128 좌표로 변환 (네이버 지도용)
 const wgs84ToTm128 = (lat, lng) => {
@@ -220,51 +262,3 @@ export const generateKakaoWebUrl = (locations) => {
   console.log('Generated Kakao Web URL:', url);
   return url;
 };
-
-// NAVER Directions API를 사용한 경로 탐색
-export const getDirections = async (coordsArray, namesArray) => {
-  if (!isValidCoordinateArray(coordsArray)) {
-    console.error('Directions API requires at least two valid coordinates (start and end).');
-    return null;
-  }
-
-  console.log('Getting directions for coords:', coordsArray);
-
-  // Firebase Functions를 통한 NAVER Directions API 호출
-  try {
-    const firebaseFunctionUrl = `https://asia-northeast3-my-optimal-route-planner.cloudfunctions.net/getDirections`;
-    console.log('Calling Firebase Function for directions:', firebaseFunctionUrl);
-
-    const response = await fetch(firebaseFunctionUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ coordsArray, namesArray }),
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      console.log('Firebase Function directions response:', data);
-      console.log('Segment times:', data.segmentTimes);
-      console.log('Segment distances:', data.segmentDistances);
-      console.log('Total time:', data.totalTime);
-      console.log('Total distance:', data.totalDistance);
-
-      if (data.path && data.totalTime && data.totalDistance) {
-        return data;
-      } else {
-        console.log('Invalid response from Firebase Function');
-        return null;
-      }
-    } else {
-      console.log('Firebase Function response status:', response.status);
-      return null;
-    }
-  } catch (error) {
-    console.error('Directions error:', error);
-    return null;
-  }
-};
-
-

@@ -203,9 +203,10 @@ const LocationList = ({
         {optimizedRoute && (
           <div className="route-summary" role="region" aria-label="최적화된 경로 정보">
             <div className="route-stops">
-              {optimizedRoute.order.map((locationName, stopIndex) => {
+              {optimizedRoute.order.map((locationIndex, stopIndex) => {
                 const isFirst = stopIndex === 0;
                 const isLast = stopIndex === optimizedRoute.order.length - 1;
+                const locationName = locations[locationIndex]?.name || `위치 ${locationIndex + 1}`;
                 
                 return (
                   <React.Fragment key={stopIndex}>

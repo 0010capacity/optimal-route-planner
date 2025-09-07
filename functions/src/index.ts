@@ -62,7 +62,7 @@ export const getDirections = onRequest(
         const waypoints = coordsArray.slice(1, coordsArray.length - 1)
             .map((coord: Coordinate) => `${coord.lng}%2C${coord.lat}`).join("|");
 
-        let url = `https://maps.apigw.ntruss.com/map-direction-15/v1/driving?start=${start}&goal=${goal}`;
+        let url = `https://maps.apigw.ntruss.com/map-direction/v1/driving?start=${start}&goal=${goal}`;
         if (waypoints) {
             url += `&waypoints=${waypoints}`;
         }
