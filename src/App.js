@@ -613,24 +613,8 @@ function App() {
       if (directionsResult) {
         setOptimizedRoute(directionsResult);
 
-        // 경로 최적화 결과에 따라 locations 재정렬
-        const optimizedLocations = directionsResult.path.map((coord, index) => {
-          const originalLocation = geocodedLocations.find(loc =>
-            Math.abs(loc.coords.lat - coord.lat) < 0.0001 &&
-            Math.abs(loc.coords.lng - coord.lng) < 0.0001
-          );
-          return originalLocation || {
-            name: `Point ${index + 1}`,
-            address: `Point ${index + 1}`,
-            coords: coord
-          };
-        });
-
-        setLocations(optimizedLocations);
-        setGeocodedLocations(optimizedLocations.map(loc => ({
-          name: loc.name,
-          coords: loc.coords
-        })));
+        // 경로 최적화 결과에 따라 locations 재정렬 제거
+        // 원래 목적지 목록 유지 (path는 경로 표시용으로만 사용)
 
         const totalMinutes = Math.round(directionsResult.totalTime / 60000);
         const hours = Math.floor(totalMinutes / 60);
