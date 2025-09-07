@@ -1,10 +1,10 @@
-/* global naver */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { searchPlaces } from './api/kakaoApi';
 import { geocodeAddress, getDirections } from './api/naverApi';
 import LocationList from './components/LocationList';
 import SearchSection from './components/SearchSection';
 import MapSection from './components/MapSection';
+import getPermutations from './utils/getPermutations';
 import './App.css';
 
 const DEFAULT_CENTER = { lat: 37.5665, lng: 126.9780 };
@@ -139,6 +139,23 @@ function App() {
 
     geocodeAllLocations();
   }, [locations]);
+
+  // 자동 경로 계산
+  useEffect(() => {
+    const fetchRoute = async () => {
+      if (geocodedLocations.length >= 2) {
+        const coordsArray = geocodedLocations.map(loc => loc.coords);
+        const result = await getDirections(coordsArray);
+        if (result) {
+          setOptimizedRoute(result);
+        }
+      } else {
+        setOptimizedRoute(null);
+      }
+    };
+
+    fetchRoute();
+  }, [geocodedLocations]);
 
   // LocalStorage 관리
   useEffect(() => {
@@ -604,33 +621,54 @@ function App() {
     });
 
     try {
-      const coordsArray = geocodedLocations.map(loc => loc.coords);
-      console.log('📍 Directions API 호출 좌표:', coordsArray);
+      const start = geocodedLocations[0];
+      const end = geocodedLocations[geocodedLocations.length - 1];
+      const waypoints = geocodedLocations.slice(1, -1);
 
-      const directionsResult = await getDirections(coordsArray);
-      console.log('📊 Directions API 응답:', directionsResult);
+      if (waypoints.length === 0) {
+        // 경유지 없음, 그냥 현재 경로
+        const coordsArray = geocodedLocations.map(loc => loc.coords);
+        const result = await getDirections(coordsArray);
+        if (result) {
+          setOptimizedRoute(result);
+          const totalMinutes = Math.round(result.totalTime / 60000);
+          const hours = Math.floor(totalMinutes / 60);
+          const minutes = totalMinutes % 60;
+          const timeString = hours > 0 ? `${hours}시간 ${minutes}분` : `${minutes}분`;
+          alert(`경로 계산 완료!\n\n총 거리: ${(result.totalDistance / 1000).toFixed(1)}km\n예상 시간: ${timeString}`);
+        }
+        return;
+      }
 
-      if (directionsResult) {
-        setOptimizedRoute(directionsResult);
+      const permutations = getPermutations(waypoints);
+      let bestRoute = null;
+      let bestTime = Infinity;
 
-        // 경로 최적화 결과에 따라 locations 재정렬 제거
-        // 원래 목적지 목록 유지 (path는 경로 표시용으로만 사용)
+      for (const perm of permutations) {
+        const coordsArray = [start.coords, ...perm.map(w => w.coords), end.coords];
+        const result = await getDirections(coordsArray);
+        if (result && result.totalTime < bestTime) {
+          bestTime = result.totalTime;
+          bestRoute = {
+            ...result,
+            waypointsOrder: perm
+          };
+        }
+      }
 
-        const totalMinutes = Math.round(directionsResult.totalTime / 60000);
+      if (bestRoute) {
+        // locations 재정렬
+        const newLocations = [start, ...bestRoute.waypointsOrder, end];
+        setLocations(newLocations);
+        setOptimizedRoute(bestRoute);
+
+        const totalMinutes = Math.round(bestRoute.totalTime / 60000);
         const hours = Math.floor(totalMinutes / 60);
         const minutes = totalMinutes % 60;
         const timeString = hours > 0 ? `${hours}시간 ${minutes}분` : `${minutes}분`;
 
-        console.log('✅ 경로 최적화 완료:', {
-          총시간: totalMinutes,
-          시간문자열: timeString,
-          총거리: directionsResult.totalDistance,
-          경로포인트수: directionsResult.path.length
-        });
-
-        alert(`경로 최적화 완료!\n\n총 거리: ${(directionsResult.totalDistance / 1000).toFixed(1)}km\n예상 시간: ${timeString}`);
+        alert(`경로 최적화 완료!\n\n총 거리: ${(bestRoute.totalDistance / 1000).toFixed(1)}km\n예상 시간: ${timeString}`);
       } else {
-        console.log('❌ Directions API 실패');
         alert('경로를 계산할 수 없습니다. 다시 시도해주세요.');
       }
     } catch (error) {
