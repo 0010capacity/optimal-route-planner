@@ -64,9 +64,9 @@ const SearchSection = ({
             type="text"
             value={searchQuery}
             onChange={(e) => onSearchQueryChange(e.target.value)}
-            placeholder="주소를 입력하세요 (예: 서울특별시 강남구 역삼동 858)"
+            placeholder="장소를 검색하세요"
             autoFocus
-            aria-label="주소 검색"
+            aria-label="장소 검색"
             role="searchbox"
           />
 
@@ -106,7 +106,7 @@ const SearchSection = ({
           )}
 
           {searchQuery && !loading && searchResults.length === 0 && (
-            <p className="no-results" role="status" aria-live="polite">❌ 검색 결과가 없습니다. 주소 형식을 확인하세요 (예: 서울특별시 강남구 역삼동 858).</p>
+            <p className="no-results" role="status" aria-live="polite">❌ 검색 결과가 없습니다. 다른 검색어로 시도해보세요.</p>
           )}
         </div>
       </div>

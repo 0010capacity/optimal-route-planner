@@ -1,11 +1,16 @@
 import React from 'react';
-import { Icon } from './Icon';
+import Icon from './Icon';
 
 const LocationList = ({
   locations,
   optimizedRoute,
   onLocationClick,
-  onAddLocation,
+            <div className="route-order">
+              <Icon name="route" size={16} />
+              <span className="route-path">
+                {routeNames.join(' → ')}
+              </span>
+            </div>dLocation,
   onOptimizeRoute,
   onDragStart,
   onDragOver,
@@ -22,7 +27,7 @@ const LocationList = ({
     
     return optimizedRoute.order.map(index => {
       const location = locations[index];
-      return location?.name || `Point ${index + 1}`;
+      return location?.name || `장소 ${index + 1}`;
     });
   };
 
@@ -50,6 +55,7 @@ const LocationList = ({
 
   const routeNames = getRouteDisplayNames();
   const arrivalTimes = getEstimatedArrivalTimes();
+
   return (
     <>
       <div className="location-list-section">
@@ -61,6 +67,12 @@ const LocationList = ({
               onDragOver={(e) => onDragOver(e, index)}
               onDragLeave={onDragLeave}
               onDrop={(e) => onDrop(e, index)}
+              style={{
+                transform: draggedIndex === index ? 'rotate(5deg) scale(1.05)' : 
+                          dragOverIndex === index ? 'scale(1.02)' : 'none',
+                zIndex: draggedIndex === index ? 1000 : 
+                        dragOverIndex === index ? 500 : 'auto'
+              }}
             >
               <div className="location-visual">
                 <div
@@ -78,6 +90,17 @@ const LocationList = ({
                 >
                   {location.name || '장소를 선택하세요'}
                 </button>
+                {optimizedRoute && arrivalTimes[index] && (
+                  <div className="arrival-time">
+                    <Icon name="clock" size={14} />
+                    <span className="arrival-time-text">
+                      {arrivalTimes[index].toLocaleTimeString('ko-KR', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                  </div>
+                )}
               </div>
               {locations.length > 2 && index !== 0 && index !== locations.length - 1 && (
                 <button
@@ -109,47 +132,14 @@ const LocationList = ({
         </button>
         {optimizedRoute && (
           <div className="route-summary" role="region" aria-label="최적화된 경로 정보">
-            <div className="route-stops">
-              {optimizedRoute.order.map((locationIndex, stopIndex) => {
-                const location = locations[locationIndex];
-                const isFirst = stopIndex === 0;
-                const isLast = stopIndex === optimizedRoute.order.length - 1;
-                
-                return (
-                  <div key={locationIndex} className={`route-stop ${isFirst ? 'departure' : isLast ? 'arrival' : 'waypoint'}`}>
-                    <div className="stop-info">
-                      <span className="stop-name">{location?.name || `Point ${locationIndex + 1}`}</span>
-                      <span className="stop-time">
-                        {isFirst ? (
-                          <>
-                            <Icon name="departure" size={12} />
-                            출발: {new Date().toLocaleTimeString('ko-KR', {
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </>
-                        ) : (
-                          <>
-                            <Icon name="clock" size={12} />
-                            도착: {arrivalTimes[stopIndex] ? arrivalTimes[stopIndex].toLocaleTimeString('ko-KR', {
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            }) : '계산중...'}
-                          </>
-                        )}
-                      </span>
-                    </div>
-                    {stopIndex < optimizedRoute.order.length - 1 && (
-                      <div className="route-arrow">→</div>
-                    )}
-                  </div>
-                );
-              })}
+            <div className="route-order">
+              <span className="route-icon">�️</span>
+              <span className="route-path">
+                {routeNames.join(' → ')}
+              </span>
             </div>
             <div className="route-stats">
-              <span className="time-icon">
-                <Icon name="time" size={14} />
-              </span>
+              <span className="time-icon">⏱️</span>
               <span className="time-text">
                 {(() => {
                   const totalMinutes = Math.round(optimizedRoute.totalTime / 60000);
@@ -158,11 +148,18 @@ const LocationList = ({
                   return hours > 0 ? `${hours}시간 ${minutes}분` : `${minutes}분`;
                 })()}
               </span>
-              <span className="distance-icon">
-                <Icon name="distance" size={14} />
-              </span>
+              <span className="distance-icon">📏</span>
               <span className="distance-text">
                 {(optimizedRoute.totalDistance / 1000).toFixed(1)}km
+              </span>
+            </div>
+            <div className="departure-time">
+              <span className="departure-icon">🚀</span>
+              <span className="departure-text">
+                출발: {new Date().toLocaleTimeString('ko-KR', {
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
               </span>
             </div>
           </div>

@@ -325,7 +325,10 @@ function App() {
       if (bestRoute) {
         const newLocations = [start, ...bestRoute.waypointsOrder, end];
         setLocations(newLocations);
-        setOptimizedRoute(bestRoute);
+        setOptimizedRoute({
+          ...bestRoute,
+          order: [0, ...bestRoute.waypointsOrder.map((_, idx) => idx + 1), bestRoute.waypointsOrder.length + 1]
+        });
 
         const totalMinutes = Math.round(bestRoute.totalTime / 60000);
         const hours = Math.floor(totalMinutes / 60);

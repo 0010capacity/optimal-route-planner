@@ -74,6 +74,17 @@
   border-color: #e0e0e0;
 }
 
+.location-item.dragging {
+  opacity: 0.8;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  border-color: #667eea;
+}
+
+.location-item.drag-over {
+  border-color: #4caf50;
+  background: linear-gradient(135deg, #f8fff8 0%, #f0f8f0 100%);
+}
+
 .location-button {
   flex: 1;
   padding: 6px 10px;
@@ -93,6 +104,26 @@
   background: #f8f9fa;
   border-color: #e0e0e0;
   transform: translateX(4px);
+}
+
+.location-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.arrival-time {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.time-icon {
+  font-size: 14px;
 }
 
 .location-visual {
@@ -220,6 +251,10 @@
   box-shadow: 0 3px 12px rgba(102, 126, 234, 0.3);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .optimize-button:hover:not(:disabled) {
@@ -232,6 +267,10 @@
   background: #6c757d;
   cursor: not-allowed;
   box-shadow: none;
+}
+
+.optimize-icon {
+  font-size: 16px;
 }
 
 .search-section {
@@ -272,7 +311,8 @@
 
 .search-input-section input {
   width: 100%;
-  padding: 16px;
+  max-width: 100%;
+  padding: 12px 16px;
   font-size: 16px;
   border: 2px solid #e0e0e0;
   border-radius: 12px;
@@ -280,6 +320,7 @@
   transition: all 0.3s ease;
   background: #f8f9fa;
   font-weight: 500;
+  box-sizing: border-box;
 }
 
 .search-input-section input:focus {
@@ -531,25 +572,63 @@
 
 .route-summary {
   margin-top: 12px;
-  padding: 12px;
+  padding: 16px;
   background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-  border-radius: 10px;
+  border-radius: 12px;
   border: 1px solid #e0e0e0;
   text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .route-order {
   font-size: 16px;
   font-weight: 600;
   color: #424242;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
   word-break: break-word;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.route-icon {
+  font-size: 18px;
+}
+
+.route-path {
+  flex: 1;
+  text-align: center;
 }
 
 .route-stats {
   font-size: 14px;
   color: #6c757d;
   font-weight: 500;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.time-icon, .distance-icon {
+  font-size: 16px;
+}
+
+.departure-time {
+  font-size: 14px;
+  color: #495057;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.departure-icon {
+  font-size: 16px;
 }
 
 /* 반응형 디자인 */
