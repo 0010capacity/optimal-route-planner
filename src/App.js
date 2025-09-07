@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getDirections, generateNaverMapUrl, generateNaverAppUrl, generateKakaoAppUrl, generateKakaoWebUrl } from './api/naverApi';
+import { getDirections, shareToMap } from './api/naverApi';
 import LocationList from './components/LocationList';
 import SearchSection from './components/SearchSection';
 import MapSection from './components/MapSection';
@@ -9,7 +9,7 @@ import { useMap } from './hooks/useMap';
 import { useFavorites } from './hooks/useFavorites';
 import { useMapMarkers } from './hooks/useMapMarkers';
 import { useLocalStorage } from './hooks/useLocalStorage';
-import getPermutations from './utils/getPermutations';
+import { HybridOptimizer } from './utils/routeOptimizer';
 import './App.css';
 
 function App() {
@@ -229,103 +229,65 @@ function App() {
     setIsOptimizing(true);
 
     try {
-      const start = validLocations[0];
-      const end = validLocations[validLocations.length - 1];
-      const waypoints = validLocations.slice(1, -1);
+      console.log('🚀 새로운 최적화 알고리즘 시작:', {
+        총장소수: validLocations.length,
+        경유지수: validLocations.length - 2
+      });
 
-      if (waypoints.length === 0) {
-        // 2개 지점만 있을 때도 개별 구간 계산 사용
-        const segmentResult = await getDirections([start.coords, end.coords], [start.name, end.name]);
-        if (segmentResult) {
-          setOptimizedRoute({
-            path: segmentResult.path,
-            totalTime: segmentResult.totalTime,
-            totalDistance: segmentResult.totalDistance,
-            segmentTimes: [segmentResult.totalTime],
-            segmentDistances: [segmentResult.totalDistance]
-          });
-        }
-        return;
-      }
+      // HybridOptimizer 사용 (API 호출 최소화)
+      const result = await HybridOptimizer.optimize(validLocations, getDirections);
 
-      const permutations = getPermutations(waypoints);
-      let bestRoute = null;
-      let bestTime = Infinity;
-
-      console.log('Optimizing route with individual segment calculations...');
-
-      for (const perm of permutations) {
-        const currentLocations = [start, ...perm, end];
+      if (result) {
+        const { optimizedLocations, routeData, optimizationMethod, apiCalls, iterations } = result;
         
-        // 개별 구간별로 계산하여 총 시간 구하기
-        let totalTime = 0;
-        let totalDistance = 0;
-        let segmentTimes = [];
-        let segmentDistances = [];
-        let fullPath = [];
-        let validRoute = true;
-
-        for (let i = 0; i < currentLocations.length - 1; i++) {
-          const segmentStart = currentLocations[i];
-          const segmentEnd = currentLocations[i + 1];
-          
-          const coordsArray = [segmentStart.coords, segmentEnd.coords];
-          const namesArray = [segmentStart.name, segmentEnd.name];
-          
-          const segmentResult = await getDirections(coordsArray, namesArray);
-          if (segmentResult) {
-            totalTime += segmentResult.totalTime;
-            totalDistance += segmentResult.totalDistance;
-            segmentTimes.push(segmentResult.totalTime);
-            segmentDistances.push(segmentResult.totalDistance);
-            
-            // 경로 포인트 합치기
-            if (i === 0) {
-              fullPath = [...segmentResult.path];
-            } else {
-              fullPath = [...fullPath, ...segmentResult.path.slice(1)];
-            }
-          } else {
-            validRoute = false;
-            break;
-          }
-        }
-
-        if (validRoute && totalTime < bestTime) {
-          bestTime = totalTime;
-          bestRoute = {
-            path: fullPath,
-            totalTime: totalTime,
-            totalDistance: totalDistance,
-            segmentTimes: segmentTimes,
-            segmentDistances: segmentDistances,
-            waypointsOrder: perm
-          };
-        }
-      }
-
-      if (bestRoute) {
-        console.log(`Best route found: ${(bestRoute.totalTime/60000).toFixed(1)}min, ${(bestRoute.totalDistance/1000).toFixed(1)}km`);
-        console.log('Best route segments:');
-        bestRoute.segmentTimes.forEach((time, i) => {
-          console.log(`Segment ${i}: ${(time/60000).toFixed(1)}min, ${(bestRoute.segmentDistances[i]/1000).toFixed(1)}km`);
+        console.log('✅ 최적화 완료:', {
+          방법: optimizationMethod,
+          API호출수: apiCalls,
+          반복횟수: iterations,
+          총시간: `${(routeData.totalTime/60000).toFixed(1)}분`,
+          총거리: `${(routeData.totalDistance/1000).toFixed(1)}km`
         });
 
-        const newLocations = [start, ...bestRoute.waypointsOrder, end];
-        setLocations(newLocations);
+        // 최적화된 순서로 locations 업데이트
+        setLocations(optimizedLocations);
         setOptimizedRoute({
-          ...bestRoute,
-          order: [0, ...bestRoute.waypointsOrder.map((_, idx) => idx + 1), bestRoute.waypointsOrder.length + 1]
+          ...routeData,
+          order: optimizedLocations.map((_, index) => index),
+          optimizationStats: {
+            method: optimizationMethod,
+            apiCalls,
+            iterations: iterations || 0
+          }
         });
+
+        // 사용자에게 결과 알림
+        const totalMinutes = Math.round(routeData.totalTime / 60000);
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        const timeString = hours > 0 ? `${hours}시간 ${minutes}분` : `${minutes}분`;
+        
+        const methodName = {
+          'direct': '직접 계산',
+          'brute_force': '완전 탐색',
+          '2-opt': '2-opt 최적화',
+          'heuristic': '휴리스틱 최적화'
+        }[optimizationMethod] || optimizationMethod;
+
+        alert(`경로 최적화 완료! (${methodName})\n\n` +
+              `총 거리: ${(routeData.totalDistance / 1000).toFixed(1)}km\n` +
+              `예상 시간: ${timeString}\n` +
+              `API 호출: ${apiCalls}회` +
+              (iterations ? `\n최적화 반복: ${iterations}회` : ''));
       } else {
-        alert('경로를 계산할 수 없습니다. 다시 시도해주세요.');
+        alert('경로를 계산할 수 없습니다. 네트워크 연결을 확인하고 다시 시도해주세요.');
       }
     } catch (error) {
-      alert('경로 최적화 중 오류가 발생했습니다.');
+      console.error('❌ 경로 최적화 오류:', error);
+      alert('경로 최적화 중 오류가 발생했습니다. 다시 시도해주세요.');
     } finally {
       setIsOptimizing(false);
     }
-  }, [geocodedLocations, locations]);
+  }, [geocodedLocations]);
 
   const handleShareRoute = useCallback(() => {
     const validLocations = geocodedLocations.filter(loc =>
@@ -350,53 +312,13 @@ function App() {
 
     setShowMapSelector(false);
 
-    if (mapType === 'naver') {
-      // 네이버 지도 선택
-      const appUrl = generateNaverAppUrl(validLocations);
-      if (appUrl) {
-        console.log('Trying Naver App URL:', appUrl);
-        
-        if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-          window.location.href = appUrl;
-          setTimeout(() => {
-            const webUrl = generateNaverMapUrl(validLocations);
-            if (webUrl) {
-              console.log('Fallback to Naver web URL:', webUrl);
-              window.open(webUrl, '_blank');
-            }
-          }, 2000);
-        } else {
-          const webUrl = generateNaverMapUrl(validLocations);
-          if (webUrl) {
-            console.log('Desktop: Using Naver web URL:', webUrl);
-            window.open(webUrl, '_blank');
-          }
-        }
-      }
-    } else if (mapType === 'kakao') {
-      // 카카오맵 선택
-      const appUrl = generateKakaoAppUrl(validLocations);
-      if (appUrl) {
-        console.log('Trying Kakao App URL:', appUrl);
-        
-        if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-          window.location.href = appUrl;
-          setTimeout(() => {
-            const webUrl = generateKakaoWebUrl(validLocations);
-            if (webUrl) {
-              console.log('Fallback to Kakao web URL:', webUrl);
-              window.open(webUrl, '_blank');
-            }
-          }, 2000);
-        } else {
-          const webUrl = generateKakaoWebUrl(validLocations);
-          if (webUrl) {
-            console.log('Desktop: Using Kakao web URL:', webUrl);
-            window.open(webUrl, '_blank');
-          }
-        }
-      }
+    if (validLocations.length < 2) {
+      alert('최소 두 개의 유효한 장소가 필요합니다.');
+      return;
     }
+
+    // 새로운 통합 지도 공유 함수 사용
+    shareToMap(mapType, validLocations);
   }, [geocodedLocations]);
 
   const handleBackToList = useCallback(() => {
