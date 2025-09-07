@@ -88,7 +88,7 @@ function App() {
     if (locations.length === 2 && locations[0] === '' && locations[1] === '') {
       console.log('Setting initial test locations');
       // 테스트용 장소 설정
-      setLocations(['서울역', '강남역']);
+      setLocations(['서울특별시 용산구 동자동 43-205', '서울특별시 강남구 역삼동 858']);
     }
   }, [locations]); // locations를 dependency에 추가
 
@@ -629,9 +629,9 @@ function App() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="장소를 입력하세요"
+                placeholder="주소를 입력하세요 (예: 서울특별시 강남구 역삼동 858)"
                 autoFocus
-                aria-label="장소 검색"
+                aria-label="주소 검색"
                 role="searchbox"
               />
               
@@ -679,7 +679,7 @@ function App() {
               )}
               
               {searchQuery && !loading && searchResults.length === 0 && (
-                <p className="no-results" role="status" aria-live="polite">❌ 검색 결과가 없습니다.</p>
+                <p className="no-results" role="status" aria-live="polite">❌ 검색 결과가 없습니다. 주소 형식을 확인하세요 (예: 서울특별시 강남구 역삼동 858).</p>
               )}
             </div>
           </div>

@@ -92,7 +92,7 @@ export const searchPlaces = async (query, centerLocation = null) => {
 
   // Firebase Functions를 통한 Naver Geocoding API 호출
   try {
-    const firebaseFunctionUrl = `https://geocodeaddress-weu5x3oaea-uc.a.run.app?address=${encodeURIComponent(address)}`;
+    const firebaseFunctionUrl = `https://us-central1-my-optimal-route-planner.cloudfunctions.net/geocodeAddress?address=${encodeURIComponent(address)}`;
 
     console.log('Calling Firebase Function for geocoding:', firebaseFunctionUrl);
 
@@ -145,7 +145,7 @@ export const getDirections = async (coordsArray) => {
 
   // Firebase Functions를 통한 Naver Directions API 호출
   try {
-    const firebaseFunctionUrl = `https://getdirections-weu5x3oaea-uc.a.run.app`;
+    const firebaseFunctionUrl = `https://us-central1-my-optimal-route-planner.cloudfunctions.net/getDirections`;
 
     console.log('Calling Firebase Function for directions:', firebaseFunctionUrl);
 
