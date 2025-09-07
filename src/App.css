@@ -455,22 +455,30 @@
 }
 
 .current-location-button {
-  padding: var(--spacing-small) var(--spacing-medium);
-  background: rgba(255, 255, 255, 0.9);
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.95);
   color: var(--text-primary);
-  border: 1px solid var(--border-color);
+  border: 2px solid var(--primary-color);
   border-radius: var(--border-radius);
   cursor: pointer;
-  font-size: 13px;
-  box-shadow: var(--shadow-light);
+  font-size: var(--font-size-medium);
+  font-weight: 600;
+  box-shadow: var(--shadow-medium);
   transition: var(--transition);
-  backdrop-filter: blur(4px);
-  font-weight: 500;
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .current-location-button:hover {
-  background: var(--bg-primary);
-  box-shadow: var(--shadow-medium);
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-hover);
+  box-shadow: var(--shadow-heavy);
+  transform: translateY(-1px);
 }
 
 .kinetic-toggle-button {
@@ -708,7 +716,13 @@
     left: var(--spacing-small);
   }
   
-  .current-location-button,
+  .current-location-button {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    font-size: 12px;
+  }
+  
   .kinetic-toggle-button {
     padding: var(--spacing-small);
     font-size: 12px;
