@@ -1,38 +1,24 @@
 /* global naver */
-import React, { useState, useEffect, useRef } from 'react';
-import { searchPlaces, geocodeAddress, getDirections } from './api/naverApi';
-import getPermutations from './utils/getPermutations';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { searchPlaces } from './api/kakaoApi';
+import { geocodeAddress, getDirections } from './api/naverApi';
 import './App.css';
 
+const DEFAULT_CENTER = { lat: 37.5665, lng: 126.9780 };
+const DEBOUNCE_DELAY = 500;
+const GEOLOCATION_OPTIONS = {
+  enableHighAccuracy: true,
+  timeout: 10000,
+  maximumAge: 300000
+};
+
 function App() {
-  // ... existing code ...
-
-    // Kakao Maps SDK v2 초기화 (React 앱에서 추가 모니터링)
-  useEffect(() => {
-    console.log('🔄 React App: Kakao SDK v2 추가 모니터링 시작');
-
-    const checkKakaoInReact = () => {
-      if (window.kakaoSdkReady) {
-        console.log('🎉 React App: Kakao SDK v2가 완전히 준비됨');
-        console.log('📋 React App: Kakao 객체 상태:', {
-          kakao: typeof window.kakao,
-          maps: typeof window.kakao?.maps,
-          services: typeof window.kakao?.maps?.services,
-          places: typeof window.kakao?.maps?.services?.Places
-        });
-      } else {
-        console.log('⏳ React App: Kakao SDK v2 준비 대기 중...');
-        setTimeout(checkKakaoInReact, 500);
-      }
-    };
-
-    checkKakaoInReact();
-  }, []);
-
-  // ... existing code ...
-  const [locations, setLocations] = useState(['', '']); // 빈 문자열로 시작
-  const [currentMode, setCurrentMode] = useState('list'); // 'list' or 'search'
-  const [editingIndex, setEditingIndex] = useState(null); // 편집 중인 경유지 인덱스
+  const [locations, setLocations] = useState([
+    { name: '', address: '', coords: null },
+    { name: '', address: '', coords: null }
+  ]);
+  const [currentMode, setCurrentMode] = useState('list');
+  const [editingIndex, setEditingIndex] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -40,15 +26,15 @@ function App() {
   const [optimizedRoute, setOptimizedRoute] = useState(null);
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
-  const [favorites, setFavorites] = useState([]); // 즐겨찾기 목록
-  const [showFavorites, setShowFavorites] = useState(false); // 즐겨찾기 표시 여부
-  const [mapCenter, setMapCenter] = useState({ lat: 37.5665, lng: 126.9780 }); // 지도 중심 좌표
-  const [userLocation, setUserLocation] = useState(null); // 사용자 현재 위치
-  const [mapInstance, setMapInstance] = useState(null); // 지도 인스턴스
-  const mapRef = useRef(null); // 지도 컨테이너 ref
-  const markersRef = useRef([]); // 마커들을 저장할 ref
-  const polylineRef = useRef(null); // 경로를 저장할 ref
+  const [favorites, setFavorites] = useState([]);
+  const [showFavorites, setShowFavorites] = useState(false);
+  const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
+  const [userLocation, setUserLocation] = useState(null);
+  const [mapInstance, setMapInstance] = useState(null);
 
+  const mapRef = useRef(null);
+  const markersRef = useRef([]);
+  const polylineRef = useRef(null);
   const debounceTimeoutRef = useRef(null);
 
   useEffect(() => {
@@ -167,14 +153,14 @@ function App() {
       const geocoded = [];
       console.log('Geocoding locations:', locations);
       for (const loc of locations) {
-        if (loc && loc.trim() !== '') { // 빈 문자열이 아닌 경우만 geocoding
-          console.log('Geocoding address:', loc);
-          const coords = await geocodeAddress(loc);
-          console.log('Geocoded result for', loc, ':', coords);
+        if (loc.address && loc.address.trim() !== '') { // 빈 문자열이 아닌 경우만 geocoding
+          console.log('Geocoding address:', loc.address);
+          const coords = await geocodeAddress(loc.address);
+          console.log('Geocoded result for', loc.address, ':', coords);
           if (coords) {
-            geocoded.push({ name: loc, coords });
+            geocoded.push({ name: loc.name, coords });
           } else {
-            console.warn('Failed to geocode:', loc);
+            console.warn('Failed to geocode:', loc.address);
           }
         }
       }
@@ -185,20 +171,25 @@ function App() {
     geocodeAllLocations();
   }, [locations]);
 
-  // 테스트용: 초기 장소 설정
-  useEffect(() => {
-    console.log('Initial locations check:', locations);
-    if (locations.length === 2 && locations[0] === '' && locations[1] === '') {
-      console.log('Setting initial test locations');
-      // 테스트용 장소 설정
-      setLocations(['서울특별시 용산구 동자동 43-205', '서울특별시 강남구 역삼동 858']);
-    }
-  }, [locations]); // locations를 dependency에 추가
-
   // locations 변경 시 localStorage에 저장
   useEffect(() => {
     localStorage.setItem('routeLocations', JSON.stringify(locations));
   }, [locations]);
+
+  // localStorage에서 locations 불러오기
+  useEffect(() => {
+    const savedLocations = localStorage.getItem('routeLocations');
+    if (savedLocations) {
+      try {
+        const parsed = JSON.parse(savedLocations);
+        if (Array.isArray(parsed) && parsed.length >= 2) {
+          setLocations(parsed);
+        }
+      } catch (error) {
+        console.error('Failed to load locations from localStorage:', error);
+      }
+    }
+  }, []);
 
   // 즐겨찾기 localStorage에서 불러오기
   useEffect(() => {
@@ -451,7 +442,24 @@ function App() {
   const handleSearchResultSelect = (result) => {
     if (editingIndex !== null) {
       const newLocations = [...locations];
-      newLocations[editingIndex] = result.title.replace(/<[^>]*>/g, '');
+      const locationName = result.title.replace(/<[^>]*>/g, '');
+
+      // 좌표 추출
+      let coords = null;
+      if (result.x && result.y) {
+        // Kakao SDK 형식
+        coords = {
+          lat: parseFloat(result.y),
+          lng: parseFloat(result.x)
+        };
+      }
+
+      newLocations[editingIndex] = {
+        name: locationName,
+        address: result.roadAddress || result.address || locationName,
+        coords: coords
+      };
+
       setLocations(newLocations);
       setCurrentMode('list');
       setEditingIndex(null);
@@ -490,7 +498,7 @@ function App() {
     e.stopPropagation();
     const draggedIndexStr = e.dataTransfer.getData('text/plain');
     const draggedIndex = parseInt(draggedIndexStr, 10);
-    
+
     if (isNaN(draggedIndex) || draggedIndex === dropIndex) {
       setDragOverIndex(null);
       return;
@@ -498,12 +506,12 @@ function App() {
 
     const newLocations = [...locations];
     const draggedItem = newLocations[draggedIndex];
-    
+
     // 드래그된 항목 제거
     newLocations.splice(draggedIndex, 1);
     // 드롭 위치에 삽입
     newLocations.splice(dropIndex, 0, draggedItem);
-    
+
     setLocations(newLocations);
     setDraggedIndex(null);
     setDragOverIndex(null);
@@ -516,21 +524,25 @@ function App() {
 
   // 즐겨찾기 추가
   const addToFavorites = (location) => {
-    if (location && !favorites.includes(location)) {
-      setFavorites([...favorites, location]);
+    if (location && location.name && !favorites.includes(location.name)) {
+      setFavorites([...favorites, location.name]);
     }
   };
 
   // 즐겨찾기 삭제
-  const removeFromFavorites = (location) => {
-    setFavorites(favorites.filter(fav => fav !== location));
+  const removeFromFavorites = (locationName) => {
+    setFavorites(favorites.filter(fav => fav !== locationName));
   };
 
   // 즐겨찾기에서 선택
-  const selectFromFavorites = (location) => {
+  const selectFromFavorites = (locationName) => {
     if (editingIndex !== null) {
       const newLocations = [...locations];
-      newLocations[editingIndex] = location;
+      newLocations[editingIndex] = {
+        name: locationName,
+        address: locationName, // 즐겨찾기에서는 이름과 주소가 같음
+        coords: null // 좌표는 나중에 geocoding으로 얻음
+      };
       setLocations(newLocations);
       setCurrentMode('list');
       setEditingIndex(null);
@@ -595,25 +607,47 @@ function App() {
       console.log(`   좌표 객체:`, location.coords);
     });
 
-    // Directions API 임시 비활성화 - Geocoding 테스트만 수행
-    console.log('=== Directions API 임시 비활성화됨 ===');
-    console.log('현재는 Geocoding 결과 확인만 수행합니다.');
+    try {
+      // 실제 Directions API 호출
+      console.log('=== Directions API 호출 시작 ===');
+      const coordsArray = geocodedLocations.map(loc => loc.coords);
+      const directionsResult = await getDirections(coordsArray);
 
-    // Mock 경로 데이터로 UI 표시 (실제 Directions API 호출 없이)
-    const mockRoute = {
-      path: geocodedLocations.map(loc => loc.coords),
-      totalTime: geocodedLocations.length * 300000, // 5분 per point
-      totalDistance: (geocodedLocations.length - 1) * 5000, // 5km per segment
-      order: geocodedLocations.map(loc => loc.name)
-    };
+      if (directionsResult) {
+        console.log('=== Directions API 결과 ===');
+        console.log('Directions result:', directionsResult);
 
-    console.log('=== Mock 경로 데이터 생성 ===');
-    console.log('Mock 경로:', mockRoute);
+        setOptimizedRoute(directionsResult);
+        
+        // 경로 최적화 결과에 따라 locations 재정렬
+        const optimizedLocations = directionsResult.path.map((coord, index) => {
+          // 좌표에 해당하는 원래 장소 찾기
+          const originalLocation = geocodedLocations.find(loc => 
+            Math.abs(loc.coords.lat - coord.lat) < 0.0001 && 
+            Math.abs(loc.coords.lng - coord.lng) < 0.0001
+          );
+          return originalLocation || { 
+            name: `Point ${index + 1}`, 
+            address: `Point ${index + 1}`, 
+            coords: coord 
+          };
+        });
+        
+        setLocations(optimizedLocations);
+        // 경로 최적화 후에는 geocoding을 다시 실행하지 않도록 geocodedLocations도 업데이트
+        setGeocodedLocations(optimizedLocations.map(loc => ({
+          name: loc.name,
+          coords: loc.coords
+        })));
 
-    setOptimizedRoute(mockRoute);
-    setLocations(mockRoute.order);
-
-    alert(`Geocoding 테스트 완료!\n\n좌표 변환 결과:\n${geocodedLocations.map((loc, i) => `${i+1}. ${loc.name}: (${loc.coords.lat}, ${loc.coords.lng})`).join('\n')}\n\n콘솔에서 자세한 로그를 확인하세요.`);
+        alert(`경로 최적화 완료!\n\n최적 경로: ${directionsResult.order.join(' → ')}\n총 거리: ${(directionsResult.totalDistance / 1000).toFixed(1)}km\n예상 시간: ${Math.round(directionsResult.totalTime / 60000)}분`);
+      } else {
+        alert('경로를 계산할 수 없습니다. 다시 시도해주세요.');
+      }
+    } catch (error) {
+      console.error('Directions API error:', error);
+      alert('경로 최적화 중 오류가 발생했습니다.');
+    }
   };
 
   return (
@@ -644,7 +678,7 @@ function App() {
                     className="location-button"
                     onClick={() => handleLocationClick(index)}
                   >
-                    {location || '장소를 선택하세요'}
+                    {location.name || '장소를 선택하세요'}
                   </button>
                   {locations.length > 2 && index !== 0 && index !== locations.length - 1 && (
                     <button 
@@ -663,7 +697,7 @@ function App() {
             <button 
               className="add-location-button"
               onClick={() => {
-                const newLocations = [...locations, '']; // 목록 끝에 새 장소 추가
+                const newLocations = [...locations, { name: '', address: '', coords: null }]; // 목록 끝에 새 장소 추가
                 setLocations(newLocations);
               }}
               aria-label="새 장소 추가"
@@ -675,9 +709,9 @@ function App() {
               className="optimize-button"
               onClick={handleOptimizeRoute} 
               disabled={false}
-              aria-label="Geocoding 테스트"
+              aria-label="경로 최적화"
             >
-              🔍 Geocoding 테스트
+              � 경로 최적화
             </button>
             {optimizedRoute && (
               <div className="route-summary" role="region" aria-label="최적화된 경로 정보">
@@ -770,13 +804,7 @@ function App() {
                             handleSearchResultSelect(result);
                             // 검색 결과 위치로 지도 중심 이동
                             let resultCoords;
-                            if (result.mapx && result.mapy) {
-                              // NAVER API 형식
-                              resultCoords = {
-                                lat: parseFloat(result.mapy) / 10000000,
-                                lng: parseFloat(result.mapx) / 10000000
-                              };
-                            } else if (result.x && result.y) {
+                            if (result.x && result.y) {
                               // Kakao SDK 형식
                               resultCoords = {
                                 lat: parseFloat(result.y),
@@ -796,7 +824,7 @@ function App() {
                         </span>
                         <button 
                           className={`favorite-button ${isFavorite ? 'favorited' : ''}`}
-                          onClick={() => isFavorite ? removeFromFavorites(locationName) : addToFavorites(locationName)}
+                          onClick={() => isFavorite ? removeFromFavorites(locationName) : addToFavorites({ name: locationName, address: result.roadAddress || result.address || locationName })}
                           aria-label={isFavorite ? `${locationName} 즐겨찾기에서 제거` : `${locationName} 즐겨찾기에 추가`}
                           title={isFavorite ? '즐겨찾기에서 제거' : '즐겨찾기에 추가'}
                         >

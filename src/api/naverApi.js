@@ -1,103 +1,12 @@
+import { isValidCoordinateArray } from './utils.js';
+
 const NAVER_CLIENT_ID = process.env.REACT_APP_NAVER_CLIENT_ID || 'your_naver_client_id_here';
 const NAVER_CLIENT_SECRET = process.env.REACT_APP_NAVER_CLIENT_SECRET || 'your_naver_client_secret_here';
 
-// Kakao SDK를 사용한 장소 검색 함수 (개선된 버전)
-export const searchPlaces = (query, options = {}) => {
-  return new Promise((resolve, reject) => {
-    if (!query) {
-      console.warn('Query is required for searchPlaces');
-      resolve([]);
-      return;
-    }
+// NAVER Maps API 관련 함수들
+// 지오코딩, 경로 탐색 기능
 
-    // Kakao SDK v2 확인
-    if (!window.kakao || !window.kakao.maps || !window.kakao.maps.services) {
-      console.error('❌ Kakao SDK v2 not available');
-      resolve([]);
-      return;
-    }
-
-    console.log('✅ Kakao SDK v2 is available, proceeding with search');
-
-    const places = new window.kakao.maps.services.Places();
-
-    // 간소화된 검색 옵션 설정 (location 우선)
-    const searchOptions = {
-      // 결과 개수 (기본 15)
-      size: options.size || 15,
-
-      // 페이지 (기본 1)
-      page: options.page || 1,
-
-      // 정렬 옵션 (기본 정확도 순)
-      sort: options.sort || window.kakao.maps.services.SortBy.ACCURACY,
-    };
-
-    // 중심 좌표 설정 (location만 사용)
-    if (options.location) {
-      // location: LatLng 객체 또는 "위도,경도" 문자열
-      if (options.location instanceof window.kakao.maps.LatLng) {
-        searchOptions.location = options.location;
-      } else if (typeof options.location === 'string') {
-        const [lat, lng] = options.location.split(',').map(coord => parseFloat(coord.trim()));
-        searchOptions.location = new window.kakao.maps.LatLng(lat, lng);
-      }
-      console.log('📍 Using location-based search:', searchOptions.location);
-    }
-
-    console.log('🔍 Simplified Kakao SDK search options:', searchOptions);
-
-    // 키워드 검색 실행
-    places.keywordSearch(query, (data, status, pagination) => {
-      console.log('📋 Kakao SDK search status:', status);
-      console.log('📊 Kakao SDK search pagination:', pagination);
-
-      if (status === window.kakao.maps.services.Status.OK) {
-        const results = data.map(item => ({
-          title: item.place_name,
-          category: item.category_name || "장소",
-          telephone: item.phone || "",
-          address: item.address_name || "",
-          roadAddress: item.road_address_name || item.address_name || "",
-          mapx: item.x || "",
-          mapy: item.y || "",
-          place_url: item.place_url || "",
-          distance: item.distance || "",
-        }));
-
-        console.log('✅ Kakao SDK search successful, results:', results.length);
-        resolve({
-          results,
-          pagination: {
-            totalCount: pagination.totalCount,
-            hasNextPage: pagination.hasNextPage,
-            hasPrevPage: pagination.hasPrevPage,
-            current: pagination.current,
-          }
-        });
-      } else if (status === window.kakao.maps.services.Status.ZERO_RESULT) {
-        console.log('⚠️ Kakao SDK search: No results found');
-        resolve({ results: [], pagination: null });
-      } else {
-        console.error('❌ Kakao SDK search failed:', status);
-        reject(new Error(`Search failed: ${status}`));
-      }
-    }, searchOptions);
-  });
-};
-
-// 두 지점 간 거리 계산 함수
-const getDistance = (point1, point2) => {
-  const R = 6371; // 지구 반지름 (km)
-  const dLat = (point2.lat - point1.lat) * Math.PI / 180;
-  const dLng = (point2.lng - point1.lng) * Math.PI / 180;
-  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(point1.lat * Math.PI / 180) * Math.cos(point2.lat * Math.PI / 180) *
-    Math.sin(dLng/2) * Math.sin(dLng/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c;
-};
-
+// NAVER Geocoding API를 사용한 주소 변환
 export const geocodeAddress = async (address) => {
   if (!address) {
     console.log('No address provided to geocode');
@@ -106,9 +15,9 @@ export const geocodeAddress = async (address) => {
 
   console.log('Geocoding address:', address);
 
-  // Firebase Functions를 통한 Naver Geocoding API 호출
+  // Firebase Functions를 통한 NAVER Geocoding API 호출
   try {
-    const firebaseFunctionUrl = `https://us-central1-my-optimal-route-planner.cloudfunctions.net/geocodeAddress?address=${encodeURIComponent(address)}`;
+    const firebaseFunctionUrl = `https://geocodeaddress-weu5x3oaea-uc.a.run.app?address=${encodeURIComponent(address)}`;
 
     console.log('Calling Firebase Function for geocoding:', firebaseFunctionUrl);
 
@@ -133,17 +42,18 @@ export const geocodeAddress = async (address) => {
   return { lat: 37.5665, lng: 126.9780 }; // Seoul coordinates
 };
 
+// NAVER Directions API를 사용한 경로 탐색
 export const getDirections = async (coordsArray) => {
-  if (!coordsArray || coordsArray.length < 2) {
-    console.error('Directions API requires at least two coordinates (start and end).');
+  if (!isValidCoordinateArray(coordsArray)) {
+    console.error('Directions API requires at least two valid coordinates (start and end).');
     return null;
   }
 
   console.log('Getting directions for coords:', coordsArray);
 
-  // Firebase Functions를 통한 Naver Directions API 호출
+  // Firebase Functions를 통한 NAVER Directions API 호출
   try {
-    const firebaseFunctionUrl = `https://us-central1-my-optimal-route-planner.cloudfunctions.net/getDirections`;
+    const firebaseFunctionUrl = `https://getdirections-weu5x3oaea-uc.a.run.app`;
 
     console.log('Calling Firebase Function for directions:', firebaseFunctionUrl);
 

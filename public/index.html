@@ -16,50 +16,59 @@
     <!-- Naver Maps API Script -->
     <script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=3hku2yfd31"></script>
 
-    <!-- Kakao Maps JavaScript SDK v2 (Places 서비스 포함) -->
-    <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=5be0a34292474922b240a1bd76ad518c&libraries=services"></script>
-
-    <!-- Kakao SDK v2 초기화 및 로드 모니터링 -->
+    <!-- Kakao Maps JavaScript SDK v2 (Places 서비스 포함) - 개선된 로딩 방식 -->
     <script>
-      console.log('🔄 Kakao SDK v2 초기화 시도 시작');
+      (function() {
+        // Kakao SDK 로드 상태 추적
+        window.kakaoSdkReady = false;
 
-      // Kakao SDK 로드 상태 추적
-      window.kakaoSdkReady = false;
+        // 콜백 함수 정의
+        window.initKakaoSdk = function() {
+          console.log('� Kakao SDK v2 초기화 시도 시작');
 
-      // SDK 로드 확인 및 초기화 (v2 방식)
-      const initKakaoSdk = () => {
-        console.log('🔍 Kakao SDK v2 로드 상태 확인 중...');
+          if (window.kakao && window.kakao.maps) {
+            console.log('✅ Kakao SDK v2 발견됨');
 
-        if (window.kakao && window.kakao.maps) {
-          console.log('✅ Kakao SDK v2 발견됨');
+            try {
+              // v2에서는 appkey를 URL로 전달하므로 별도 init() 불필요
+              console.log('🎯 Kakao SDK v2 초기화 (URL 파라미터 방식 사용)');
 
-          try {
-            // v2에서는 appkey를 URL로 전달하므로 별도 init() 불필요
-            console.log('🎯 Kakao SDK v2 초기화 (URL 파라미터 방식 사용)');
+              // Maps SDK 로드
+              window.kakao.maps.load(() => {
+                console.log('🚀 Kakao Maps SDK v2 로드 완료');
+                console.log('📋 사용 가능한 kakao.maps 속성:', Object.keys(window.kakao.maps));
+                console.log('📋 사용 가능한 kakao.maps.services 속성:', Object.keys(window.kakao.maps.services));
+                console.log('📋 Places 서비스 사용 가능:', typeof window.kakao.maps.services.Places);
 
-            // Maps SDK 로드
-            window.kakao.maps.load(() => {
-              console.log('🚀 Kakao Maps SDK v2 로드 완료');
-              console.log('📋 사용 가능한 kakao.maps 속성:', Object.keys(window.kakao.maps));
-              console.log('📋 사용 가능한 kakao.maps.services 속성:', Object.keys(window.kakao.maps.services));
-              console.log('📋 Places 서비스 사용 가능:', typeof window.kakao.maps.services.Places);
+                window.kakaoSdkReady = true;
+                console.log('🎉 Kakao SDK v2 완전 초기화 완료 - 모든 기능 사용 가능');
+              });
 
-              window.kakaoSdkReady = true;
-              console.log('🎉 Kakao SDK v2 완전 초기화 완료 - 모든 기능 사용 가능');
-            });
-
-          } catch (error) {
-            console.error('❌ Kakao SDK v2 초기화 실패:', error);
+            } catch (error) {
+              console.error('❌ Kakao SDK v2 초기화 실패:', error);
+            }
           }
+        };
 
-        } else {
-          console.log('⏳ Kakao SDK v2 아직 로드되지 않음, 200ms 후 재시도...');
-          setTimeout(initKakaoSdk, 200);
-        }
-      };
+        // 스크립트 동적 로드 (async 방식)
+        const script = document.createElement('script');
+        script.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=5be0a34292474922b240a1bd76ad518c&libraries=services&autoload=false';
+        script.async = true;
+        script.defer = true;
 
-      // 초기화 시작
-      setTimeout(initKakaoSdk, 100);
+        // 로드 완료 이벤트 리스너
+        script.onload = function() {
+          console.log('Kakao SDK script loaded, initializing...');
+          // 약간의 지연 후 초기화 (안전하게)
+          setTimeout(window.initKakaoSdk, 100);
+        };
+
+        script.onerror = function() {
+          console.error('Failed to load Kakao SDK script');
+        };
+
+        document.head.appendChild(script);
+      })();
     </script>
 
     <!-- Google Maps API Script with Places Library -->
@@ -76,7 +85,7 @@
 
         // 스크립트 동적 로드
         const script = document.createElement('script');
-        script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyCuI4OfM-oPbnKoes_uaYfUWZ2f-btjgtQ&v=weekly&libraries=places&callback=initGoogleMaps';
+        script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyCuI4OfM-oPbnKoes_uaYfUWZ2f-btjgtQ&v=weekly&libraries=places&callback=initGoogleMaps&loading=async';
         script.async = true;
         script.defer = true;
 
