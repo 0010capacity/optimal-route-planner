@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Icon } from './Icon';
 import { generateNaverMapUrl } from '../api/naverApi';
 
@@ -19,6 +19,9 @@ const LocationList = ({
   isOptimizing,
   onShareRoute
 }) => {
+  // 내부 드래그 모드 상태 관리
+  const [isDragMode, setIsDragMode] = useState(false);
+
   // 경로 순서에 따른 장소 이름 매핑
   const getRouteDisplayNames = () => {
     if (!optimizedRoute || !optimizedRoute.order) return [];
@@ -47,6 +50,76 @@ const LocationList = ({
 
   const routeNames = getRouteDisplayNames();
   const arrivalTimes = getEstimatedArrivalTimes();
+
+  // 드래그 모드에서 스크롤 방지
+  useEffect(() => {
+    if (isDragMode) {
+      const preventScroll = (e) => {
+        if (e.target.closest('.location-list')) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      };
+
+      const preventTouchMove = (e) => {
+        if (e.target.closest('.location-dot') && isDragMode) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      };
+
+      document.addEventListener('touchmove', preventScroll, { passive: false });
+      document.addEventListener('touchstart', preventTouchMove, { passive: false });
+      
+      return () => {
+        document.removeEventListener('touchmove', preventScroll);
+        document.removeEventListener('touchstart', preventTouchMove);
+      };
+    }
+  }, [isDragMode]);
+
+  // 드래그 핸들 마우스 이벤트 (PC용)
+  const handleDotMouseDown = (e, index) => {
+    // 이벤트 전파 방지 (안전하게)
+    if (e && typeof e.stopPropagation === 'function') {
+      e.stopPropagation();
+    }
+
+    // 드래그 모드만 활성화 (실제 드래그는 onDragStart에 맡김)
+    if (!isDragMode && !isOptimizing) {
+      setIsDragMode(true);
+    }
+  };
+
+  // 드래그 핸들 터치로 자동 드래그 모드 활성화
+  const handleDotTouchStart = (e, index) => {
+    if (!isDragMode && !isOptimizing) {
+      setIsDragMode(true);
+    }
+    // 터치 이벤트에서도 드래그 시작
+    if (isDragMode) {
+      const touch = e.touches[0];
+      const dragStartEvent = {
+        ...e,
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+        dataTransfer: {
+          effectAllowed: 'move',
+          setData: (type, data) => {},
+          getData: (type) => index.toString()
+        }
+      };
+      onDragStart(dragStartEvent, index);
+    }
+  };
+
+  const handleDotTouchEnd = () => {
+    // 드래그가 끝나면 자동으로 드래그 모드 비활성화
+    if (isDragMode) {
+      setIsDragMode(false);
+    }
+  };
+
   return (
     <>
       {isOptimizing && (
@@ -58,21 +131,27 @@ const LocationList = ({
         </div>
       )}
       <div className="location-list-section">
+        {/* 드래그 모드 토글 버튼 제거 - 자동 활성화 방식으로 변경 */}
         <ul className="location-list">
           {locations.map((location, index) => (
             <li
               key={index}
-              className={`location-item ${index === 0 ? 'start' : index === locations.length - 1 ? 'end' : 'waypoint'} ${draggedIndex === index ? 'dragging' : ''} ${dragOverIndex === index ? 'drag-over' : ''}`}
+              className={`location-item ${index === 0 ? 'start' : index === locations.length - 1 ? 'end' : 'waypoint'} ${draggedIndex === index ? 'dragging' : ''} ${dragOverIndex === index ? 'drag-over' : ''} ${isDragMode ? 'drag-mode' : ''}`}
               onDragOver={(e) => onDragOver(e, index)}
               onDragLeave={onDragLeave}
               onDrop={(e) => onDrop(e, index)}
             >
               <div className="location-visual">
                 <div
-                  className="location-dot"
+                  className={`location-dot ${isDragMode ? 'drag-enabled' : ''}`}
                   draggable={!isOptimizing}
                   onDragStart={(e) => onDragStart(e, index)}
                   onDragEnd={onDragEnd}
+                  onMouseDown={(e) => handleDotMouseDown(e, index)}
+                  onTouchStart={(e) => handleDotTouchStart(e, index)}
+                  onTouchEnd={handleDotTouchEnd}
+                  style={{ cursor: isDragMode ? 'grab' : 'pointer' }}
+                  title={isDragMode ? '드래그하여 순서 변경' : '클릭/터치하여 드래그 모드 활성화'}
                 ></div>
                 <div className="location-line"></div>
               </div>

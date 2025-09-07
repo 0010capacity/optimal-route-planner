@@ -200,10 +200,18 @@ function App() {
   }, [locations]);
 
   const handleDragStart = useCallback((e, index) => {
-    e.stopPropagation();
+    // 이벤트 객체 안전성 확인
+    if (e && typeof e.stopPropagation === 'function') {
+      e.stopPropagation();
+    }
+
     setDraggedIndex(index);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', index.toString());
+
+    // dataTransfer 객체 안전성 확인
+    if (e && e.dataTransfer) {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', index.toString());
+    }
   }, []);
 
   const handleDragOver = useCallback((e, index) => {
@@ -469,10 +477,7 @@ function App() {
             <div className="footer-brand">
               <h4>최적 경로 플래너 <span className="beta-badge">BETA</span></h4>
               <p>여러 장소를 효율적으로 방문할 수 있는 최적 경로를 자동으로 계산해주는 웹 애플리케이션입니다.</p>
-            </div>
-            
-            <div className="footer-links-section">
-              <div className="footer-links">
+              <div className="footer-brand-links">
                 <a href="https://github.com/0010capacity/optimal-route-planner" target="_blank" rel="noopener noreferrer">
                   GitHub
                 </a>
