@@ -100,7 +100,7 @@ export const useLocations = () => {
 
   const handleOptimizeRoute = useCallback(async () => {
     if (geocodedLocations.length < 2) {
-      alert('최소 두 개 이상의 장소를 추가해야 경로를 최적화할 수 있습니다.');
+      console.warn('최소 두 개 이상의 장소를 추가해야 경로를 최적화할 수 있습니다.');
       return;
     }
 
@@ -123,7 +123,7 @@ export const useLocations = () => {
           const hours = Math.floor(totalMinutes / 60);
           const minutes = totalMinutes % 60;
           const timeString = hours > 0 ? `${hours}시간 ${minutes}분` : `${minutes}분`;
-          alert(`경로 계산 완료!\n\n총 거리: ${(result.totalDistance / 1000).toFixed(1)}km\n예상 시간: ${timeString}`);
+          console.log(`경로 계산 완료! 총 거리: ${(result.totalDistance / 1000).toFixed(1)}km, 예상 시간: ${timeString}`);
         }
         return;
       }
@@ -154,13 +154,13 @@ export const useLocations = () => {
         const minutes = totalMinutes % 60;
         const timeString = hours > 0 ? `${hours}시간 ${minutes}분` : `${minutes}분`;
 
-        alert(`경로 최적화 완료!\n\n총 거리: ${(bestRoute.totalDistance / 1000).toFixed(1)}km\n예상 시간: ${timeString}`);
+        console.log(`경로 최적화 완료! 총 거리: ${(bestRoute.totalDistance / 1000).toFixed(1)}km, 예상 시간: ${timeString}`);
       } else {
-        alert('경로를 계산할 수 없습니다. 다시 시도해주세요.');
+        console.error('경로를 계산할 수 없습니다. 다시 시도해주세요.');
       }
     } catch (error) {
       console.error('❌ Directions API 오류:', error);
-      alert('경로 최적화 중 오류가 발생했습니다.');
+      console.error('경로 최적화 중 오류가 발생했습니다.');
     }
   }, [geocodedLocations]);
 

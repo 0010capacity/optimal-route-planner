@@ -222,7 +222,7 @@ function App() {
     );
 
     if (validLocations.length < 2) {
-      alert(`최소 두 개 이상의 유효한 장소가 필요합니다.\n현재 유효한 장소: ${validLocations.length}개`);
+      console.warn(`최소 두 개 이상의 유효한 장소가 필요합니다. 현재 유효한 장소: ${validLocations.length}개`);
       return;
     }
 
@@ -260,7 +260,7 @@ function App() {
           }
         });
 
-        // 사용자에게 결과 알림
+        // 사용자에게 결과 알림 (콘솔로만 출력)
         const totalMinutes = Math.round(routeData.totalTime / 60000);
         const hours = Math.floor(totalMinutes / 60);
         const minutes = totalMinutes % 60;
@@ -273,17 +273,17 @@ function App() {
           'heuristic': '휴리스틱 최적화'
         }[optimizationMethod] || optimizationMethod;
 
-        alert(`경로 최적화 완료! (${methodName})\n\n` +
-              `총 거리: ${(routeData.totalDistance / 1000).toFixed(1)}km\n` +
-              `예상 시간: ${timeString}\n` +
-              `API 호출: ${apiCalls}회` +
-              (iterations ? `\n최적화 반복: ${iterations}회` : ''));
+        console.log(`✅ 경로 최적화 완료! (${methodName})`, {
+          총거리: `${(routeData.totalDistance / 1000).toFixed(1)}km`,
+          예상시간: timeString,
+          API호출: `${apiCalls}회`,
+          최적화반복: iterations ? `${iterations}회` : '없음'
+        });
       } else {
-        alert('경로를 계산할 수 없습니다. 네트워크 연결을 확인하고 다시 시도해주세요.');
+        console.error('경로를 계산할 수 없습니다. 네트워크 연결을 확인하고 다시 시도해주세요.');
       }
     } catch (error) {
       console.error('❌ 경로 최적화 오류:', error);
-      alert('경로 최적화 중 오류가 발생했습니다. 다시 시도해주세요.');
     } finally {
       setIsOptimizing(false);
     }
@@ -296,7 +296,7 @@ function App() {
     );
 
     if (validLocations.length < 2) {
-      alert('최소 두 개의 유효한 장소가 필요합니다.');
+      console.warn('지도 공유: 최소 두 개의 유효한 장소가 필요합니다.');
       return;
     }
 
@@ -313,7 +313,7 @@ function App() {
     setShowMapSelector(false);
 
     if (validLocations.length < 2) {
-      alert('최소 두 개의 유효한 장소가 필요합니다.');
+      console.warn('지도 선택: 최소 두 개의 유효한 장소가 필요합니다.');
       return;
     }
 

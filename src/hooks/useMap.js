@@ -66,7 +66,7 @@ export const useMap = () => {
 
   const getCurrentLocation = useCallback(() => {
     if (!navigator.geolocation) {
-      alert('이 브라우저는 위치 서비스를 지원하지 않습니다.');
+      console.warn('이 브라우저는 위치 서비스를 지원하지 않습니다.');
       return;
     }
 
@@ -78,8 +78,8 @@ export const useMap = () => {
         moveMapToLocation(newLocation);
       },
       (error) => {
-        console.error('Error getting current location:', error);
-        alert('현재 위치를 가져올 수 없습니다.');
+        console.error('위치 서비스 오류:', error);
+        console.warn('현재 위치를 가져올 수 없습니다.');
       },
       GEOLOCATION_OPTIONS
     );
