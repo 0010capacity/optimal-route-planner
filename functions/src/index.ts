@@ -17,14 +17,6 @@ interface Coordinate {
   lng: number;
 }
 
-interface RouteStep {
-  path: number[][];
-}
-
-interface RouteLeg {
-  steps: RouteStep[];
-}
-
 interface RouteSummary {
   duration: number;
   distance: number;
@@ -32,7 +24,9 @@ interface RouteSummary {
 
 interface Route {
   summary: RouteSummary;
-  legs: RouteLeg[];
+  path: number[][]; // NAVER API에서 직접 제공되는 path (좌표 배열)
+  section?: object[]; // 선택: 도로 정보
+  guide?: object[]; // 선택: 분기점 안내
 }
 
 export const getDirections = onRequest(
@@ -58,13 +52,13 @@ export const getDirections = onRequest(
         const naverClientSecret = await NAVER_CLIENT_SECRET.value();
 
         const start =
-    `${coordsArray[0].lng},${coordsArray[0].lat}`;
+    `${coordsArray[0].lng}%2C${coordsArray[0].lat}`;
         const goal =
-    `${coordsArray[coordsArray.length - 1].lng},${coordsArray[coordsArray.length - 1].lat}`;
+    `${coordsArray[coordsArray.length - 1].lng}%2C${coordsArray[coordsArray.length - 1].lat}`;
         const waypoints = coordsArray.slice(1, coordsArray.length - 1)
-            .map((coord: Coordinate) => `${coord.lng},${coord.lat}`).join("|");
+            .map((coord: Coordinate) => `${coord.lng}%2C${coord.lat}`).join("|");
 
-        let url = `https://naveropenapi.apigw.ntruss.com/map-direction/v1/driving?start=${start}&goal=${goal}`;
+        let url = `https://maps.apigw.ntruss.com/map-direction-15/v1/driving?start=${start}&goal=${goal}`;
         if (waypoints) {
             url += `&waypoints=${waypoints}`;
         }
@@ -74,30 +68,26 @@ export const getDirections = onRequest(
         fetch(url, {
             method: "GET",
             headers: {
-                "X-NCP-APIGW-API-KEY-ID": naverClientId,
-                "X-NCP-APIGW-API-KEY": naverClientSecret,
+                "x-ncp-apigw-api-key-id": naverClientId,
+                "x-ncp-apigw-api-key": naverClientSecret,
             },
         })
             .then((res) => res.json())
             .then((data) => {
                 logger.info("NAVER API Response:", data);
 
-                if (data.code === 0 && data.routes && data.routes.length > 0) {
-                    const route: Route = data.routes[0];
+                if (data.code === 0 && data.route && data.route.traoptimal && data.route.traoptimal.length > 0) {
+                    const route: Route = data.route.traoptimal[0];
                     const totalTime = route.summary.duration;
                     const totalDistance = route.summary.distance;
 
-                    // Extract path from route data
+                    // Extract path directly from NAVER response (path is [lng, lat])
                     let fullPath: Coordinate[] = [];
-                    if (route.legs && route.legs.length > 0) {
-                        fullPath = route.legs.flatMap((leg: RouteLeg) =>
-                            leg.steps ? leg.steps.flatMap((step: RouteStep) =>
-                                step.path ? step.path.map((coord: number[]) => ({
-                                    lat: coord[1],
-                                    lng: coord[0],
-                                })) : []
-                            ) : []
-                        );
+                    if (route.path && route.path.length > 0) {
+                        fullPath = route.path.map((coord: number[]) => ({
+                            lat: coord[1], // NAVER: [lng, lat] -> [lat, lng]
+                            lng: coord[0],
+                        }));
                     }
 
                     // If no detailed path, create simple path from waypoints
@@ -175,8 +165,8 @@ export const geocodeAddress = onRequest(
         fetch(url, {
             method: "GET",
             headers: {
-                "X-NCP-APIGW-API-KEY-ID": naverClientId,
-                "X-NCP-APIGW-API-KEY": naverClientSecret,
+                "x-ncp-apigw-api-key-id": naverClientId,
+                "x-ncp-apigw-api-key": naverClientSecret,
                 "Accept": "application/json",
             },
         })

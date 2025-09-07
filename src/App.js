@@ -113,12 +113,17 @@ function App() {
     return R * c;
   };
 
-  // Geocoding 로직
+  // Geocoding 로직 - Kakao 좌표가 있는 경우 생략
   useEffect(() => {
     const geocodeAllLocations = async () => {
       const geocoded = [];
       for (const loc of locations) {
-        if (loc.address && loc.address.trim() !== '') {
+        // 이미 Kakao에서 좌표를 받은 경우 Geocoding 생략
+        if (loc.coords && loc.coords.lat && loc.coords.lng) {
+          geocoded.push({ name: loc.name, coords: loc.coords });
+        }
+        // 주소가 있고 좌표가 없는 경우에만 Geocoding
+        else if (loc.address && loc.address.trim() !== '') {
           try {
             const coords = await geocodeAddress(loc.address);
             if (coords) {
@@ -238,9 +243,18 @@ function App() {
 
     // 최적화된 경로 표시
     if (optimizedRoute && optimizedRoute.path && optimizedRoute.path.length > 0) {
+      console.log('🛣️ 경로 표시 시작:', {
+        경로포인트수: optimizedRoute.path.length,
+        전체시간: optimizedRoute.totalTime,
+        총거리: optimizedRoute.totalDistance,
+        경로데이터: optimizedRoute.path.slice(0, 5) // 처음 5개 포인트만 로그
+      });
+
       const pathCoords = optimizedRoute.path.map(coord =>
         new window.naver.maps.LatLng(coord.lat, coord.lng)
       );
+
+      console.log('🗺️ 변환된 경로 좌표:', pathCoords.slice(0, 3)); // 처음 3개만 로그
 
       const polyline = new window.naver.maps.Polyline({
         path: pathCoords,
@@ -252,6 +266,7 @@ function App() {
       });
 
       polylineRef.current = polyline;
+      console.log('✅ 폴리라인 생성 완료');
 
       // 경로가 보이도록 지도 범위 조정
       if (pathCoords.length > 0) {
@@ -260,8 +275,11 @@ function App() {
         mapInstance.fitBounds(bounds);
         setTimeout(() => {
           mapInstance.setZoom(mapInstance.getZoom() - 1);
+          console.log('📍 지도 줌 레벨 조정 완료');
         }, 100);
       }
+    } else {
+      console.log('❌ 경로 데이터 없음:', optimizedRoute);
     }
 
     // 사용자 위치 마커
@@ -382,10 +400,42 @@ function App() {
     if (editingIndex === null) return;
 
     const locationName = result.title.replace(/<[^>]*>/g, '');
-    const coords = result.x && result.y ? {
-      lat: parseFloat(result.y),
-      lng: parseFloat(result.x)
-    } : null;
+    
+    // 더 robust한 좌표 검증
+    const validateAndParseCoords = (x, y) => {
+      if (!x || !y) return null;
+      
+      // 빈 문자열이나 undefined 체크
+      const xStr = String(x).trim();
+      const yStr = String(y).trim();
+      
+      if (!xStr || !yStr || xStr === '' || yStr === '') return null;
+      
+      const lat = parseFloat(yStr);
+      const lng = parseFloat(xStr);
+      
+      // 유효한 좌표 범위 체크 (대한민국 범위)
+      if (isNaN(lat) || isNaN(lng)) return null;
+      if (lat < 33 || lat > 39 || lng < 124 || lng > 132) return null;
+      
+      return { lat, lng };
+    };
+    
+    const coords = validateAndParseCoords(result.x, result.y);
+
+    // 선택된 장소 정보 출력 (좌표 검증 결과 포함)
+    console.log('🎯 선택된 장소 정보:', {
+      원본결과: result,
+      장소명: locationName,
+      주소: result.roadAddress || result.address || '주소 정보 없음',
+      좌표: coords ? `${coords.lat}, ${coords.lng}` : '좌표 정보 없음 (Geocoding 필요)',
+      원본좌표값: { x: result.x, y: result.y },
+      좌표유효성: coords ? '✅ 유효' : '❌ 유효하지 않음',
+      카테고리: result.category || '카테고리 없음',
+      전화번호: result.telephone || '전화번호 없음',
+      거리: result.distance || '거리 정보 없음',
+      위치인덱스: editingIndex
+    });
 
     const newLocations = [...locations];
     newLocations[editingIndex] = {
@@ -399,6 +449,30 @@ function App() {
     setEditingIndex(null);
     setSearchQuery('');
     setSearchResults([]);
+
+    // 좌표가 없는 경우 백그라운드에서 Geocoding 시도
+    if (!coords) {
+      const address = result.roadAddress || result.address || locationName;
+      if (address && address.trim()) {
+        console.log('📍 좌표 없는 장소, Geocoding 시도:', address);
+        geocodeAddress(address).then(geocodedCoords => {
+          if (geocodedCoords) {
+            console.log('✅ Geocoding 성공:', geocodedCoords);
+            const updatedLocations = [...locations];
+            updatedLocations[editingIndex] = {
+              name: locationName,
+              address: result.roadAddress || result.address || locationName,
+              coords: geocodedCoords
+            };
+            setLocations(updatedLocations);
+          } else {
+            console.log('❌ Geocoding 실패 - 좌표 정보 없음');
+          }
+        }).catch(error => {
+          console.error('❌ Geocoding 오류:', error);
+        });
+      }
+    }
   }, [editingIndex, locations]);
 
   const handleBackToList = useCallback(() => {
@@ -476,7 +550,7 @@ function App() {
     newLocations[editingIndex] = {
       name: locationName,
       address: locationName,
-      coords: null
+      coords: null  // 좌표가 없으므로 Geocoding 필요
     };
     setLocations(newLocations);
     setCurrentMode('list');
@@ -524,43 +598,43 @@ function App() {
       return;
     }
 
+    console.log('🚀 경로 최적화 시작:', {
+      장소수: geocodedLocations.length,
+      장소목록: geocodedLocations.map(loc => ({ 이름: loc.name, 좌표: loc.coords }))
+    });
+
     try {
       const coordsArray = geocodedLocations.map(loc => loc.coords);
+      console.log('📍 Directions API 호출 좌표:', coordsArray);
+
       const directionsResult = await getDirections(coordsArray);
+      console.log('📊 Directions API 응답:', directionsResult);
 
       if (directionsResult) {
         setOptimizedRoute(directionsResult);
 
-        // 경로 최적화 결과에 따라 locations 재정렬
-        const optimizedLocations = directionsResult.path.map((coord, index) => {
-          const originalLocation = geocodedLocations.find(loc =>
-            Math.abs(loc.coords.lat - coord.lat) < 0.0001 &&
-            Math.abs(loc.coords.lng - coord.lng) < 0.0001
-          );
-          return originalLocation || {
-            name: `Point ${index + 1}`,
-            address: `Point ${index + 1}`,
-            coords: coord
-          };
-        });
-
-        setLocations(optimizedLocations);
-        setGeocodedLocations(optimizedLocations.map(loc => ({
-          name: loc.name,
-          coords: loc.coords
-        })));
+        // 경로 최적화 결과에 따라 locations 재정렬 제거
+        // 원래 목적지 목록 유지 (path는 경로 표시용으로만 사용)
 
         const totalMinutes = Math.round(directionsResult.totalTime / 60000);
         const hours = Math.floor(totalMinutes / 60);
         const minutes = totalMinutes % 60;
         const timeString = hours > 0 ? `${hours}시간 ${minutes}분` : `${minutes}분`;
 
+        console.log('✅ 경로 최적화 완료:', {
+          총시간: totalMinutes,
+          시간문자열: timeString,
+          총거리: directionsResult.totalDistance,
+          경로포인트수: directionsResult.path.length
+        });
+
         alert(`경로 최적화 완료!\n\n총 거리: ${(directionsResult.totalDistance / 1000).toFixed(1)}km\n예상 시간: ${timeString}`);
       } else {
+        console.log('❌ Directions API 실패');
         alert('경로를 계산할 수 없습니다. 다시 시도해주세요.');
       }
     } catch (error) {
-      console.error('Directions API error:', error);
+      console.error('❌ Directions API 오류:', error);
       alert('경로 최적화 중 오류가 발생했습니다.');
     }
   }, [geocodedLocations]);
