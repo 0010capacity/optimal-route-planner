@@ -29,6 +29,37 @@
     <!-- Naver Maps API Script -->
     <!-- IMPORTANT: Replace YOUR_CLIENT_ID with your actual Naver Maps Client ID -->
     <script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=3hku2yfd31"></script>
+    
+    <!-- Google Maps API Script with Places Library -->
+    <script>
+      (function() {
+        // Google Maps API 로드 상태 추적
+        window.googleMapsLoaded = false;
+
+        // 콜백 함수 정의
+        window.initGoogleMaps = function() {
+          window.googleMapsLoaded = true;
+          console.log('Google Maps API loaded successfully');
+        };
+
+        // 스크립트 동적 로드
+        const script = document.createElement('script');
+        script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyCuI4OfM-oPbnKoes_uaYfUWZ2f-btjgtQ&v=weekly&libraries=places&callback=initGoogleMaps';
+        script.async = true;
+        script.defer = true;
+
+        // 로드 완료 이벤트 리스너
+        script.onload = function() {
+          console.log('Google Maps script loaded');
+        };
+
+        script.onerror = function() {
+          console.error('Failed to load Google Maps script');
+        };
+
+        document.head.appendChild(script);
+      })();
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>

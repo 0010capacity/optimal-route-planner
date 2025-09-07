@@ -5,12 +5,12 @@ import { initializeApp } from "firebase/app";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyBHFdD9rHsB-sA98FJYh7wOqSwSKevt61I",
-  authDomain: "optimal-route-planner-0010.firebaseapp.com",
-  projectId: "optimal-route-planner-0010",
-  storageBucket: "optimal-route-planner-0010.firebasestorage.app",
-  messagingSenderId: "244581352264",
-  appId: "1:244581352264:web:46fe6fc70e45e32363697d"
+  apiKey: "AIzaSyBQl0acjqwoxVlOo5rScCTKVd52cmBdRDU",
+  authDomain: "my-optimal-route-planner.firebaseapp.com",
+  projectId: "my-optimal-route-planner",
+  storageBucket: "my-optimal-route-planner.firebasestorage.app",
+  messagingSenderId: "332462735623",
+  appId: "1:332462735623:web:6ec1ed87b554b98ccd45a2"
 };
 
 // Initialize Firebase
