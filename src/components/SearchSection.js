@@ -1,4 +1,5 @@
 import React from 'react';
+import { Icon } from './Icon';
 
 const SearchSection = ({
   searchQuery,
@@ -19,14 +20,14 @@ const SearchSection = ({
       <div className="search-section">
         <div className="search-header">
           <button className="back-button" onClick={onBackToList} aria-label="목록으로 돌아가기">
-            ← 뒤로가기
+            <Icon name="back" size={16} />
           </button>
           <button
             className={`favorites-toggle ${showFavorites ? 'active' : ''}`}
             onClick={onToggleFavorites}
             aria-label={showFavorites ? "즐겨찾기 숨기기" : "즐겨찾기 보기"}
           >
-            {showFavorites ? '⭐ 즐겨찾기 숨기기' : '☆ 즐겨찾기 보기'}
+            <Icon name="star" size={16} />
           </button>
         </div>
 
@@ -43,7 +44,8 @@ const SearchSection = ({
                     tabIndex={0}
                     aria-label={`${favorite} 선택`}
                   >
-                    📍 {favorite}
+                    <Icon name="location" size={14} />
+                    {favorite}
                   </span>
                   <button
                     className="remove-favorite-button"
@@ -70,7 +72,7 @@ const SearchSection = ({
             role="searchbox"
           />
 
-          {loading && <p role="status" aria-live="polite">🔍 검색 중...</p>}
+          {loading && <p role="status" aria-live="polite" className="loading-status"><Icon name="search" size={16} /> 검색 중...</p>}
 
           {searchResults.length > 0 && (
             <ul className="search-results" role="listbox" aria-label="검색 결과">
