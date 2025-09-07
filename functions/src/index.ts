@@ -3,6 +3,8 @@ import {onRequest} from "firebase-functions/https";
 import {defineSecret} from "firebase-functions/params";
 import * as logger from "firebase-functions/logger";
 
+// Force redeploy - updated on 2025-09-07
+
 setGlobalOptions({maxInstances: 10});
 
 // Define secrets

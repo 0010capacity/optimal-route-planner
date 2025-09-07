@@ -13,7 +13,6 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [geocodedLocations, setGeocodedLocations] = useState([]);
   const [optimizedRoute, setOptimizedRoute] = useState(null);
-  const [optimizing, setOptimizing] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
   const [favorites, setFavorites] = useState([]); // 즐겨찾기 목록
@@ -462,112 +461,41 @@ function App() {
   };
 
   const handleOptimizeRoute = async () => {
-    console.log('Optimize route button clicked');
-    console.log('Current geocodedLocations:', geocodedLocations);
-    console.log('Current locations:', locations);
+    console.log('=== 경로 최적화 버튼 클릭됨 ===');
+    console.log('현재 locations:', locations);
+    console.log('현재 geocodedLocations:', geocodedLocations);
 
     if (geocodedLocations.length < 2) {
       alert('최소 두 개 이상의 장소를 추가해야 경로를 최적화할 수 있습니다.');
       return;
     }
 
-    console.log('Starting route optimization with locations:', geocodedLocations);
+    console.log('=== Geocoding 결과 상세 로그 ===');
+    geocodedLocations.forEach((location, index) => {
+      console.log(`${index + 1}. ${location.name}`);
+      console.log(`   좌표: lat=${location.coords.lat}, lng=${location.coords.lng}`);
+      console.log(`   좌표 객체:`, location.coords);
+    });
 
-    setOptimizing(true);
-    setOptimizedRoute(null);
+    // Directions API 임시 비활성화 - Geocoding 테스트만 수행
+    console.log('=== Directions API 임시 비활성화됨 ===');
+    console.log('현재는 Geocoding 결과 확인만 수행합니다.');
 
-    const startPoint = geocodedLocations[0];
-    const endPoint = geocodedLocations[geocodedLocations.length - 1];
-    const waypoints = geocodedLocations.slice(1, geocodedLocations.length - 1);
+    // Mock 경로 데이터로 UI 표시 (실제 Directions API 호출 없이)
+    const mockRoute = {
+      path: geocodedLocations.map(loc => loc.coords),
+      totalTime: geocodedLocations.length * 300000, // 5분 per point
+      totalDistance: (geocodedLocations.length - 1) * 5000, // 5km per segment
+      order: geocodedLocations.map(loc => loc.name)
+    };
 
-    let bestRoute = null;
-    let minTime = Infinity;
+    console.log('=== Mock 경로 데이터 생성 ===');
+    console.log('Mock 경로:', mockRoute);
 
-    try {
-      if (waypoints.length === 0) {
-        console.log('Direct route from start to end');
-        const route = await getDirections([startPoint.coords, endPoint.coords]);
-        if (route) {
-          bestRoute = {
-            path: route.path,
-            totalTime: route.totalTime,
-            totalDistance: route.totalDistance,
-            order: [startPoint.name, endPoint.name]
-          };
-          minTime = route.totalTime;
-          console.log('Direct route found:', bestRoute);
-        } else {
-          // API 실패 시 mock 데이터 사용
-          console.log('API failed, using mock data');
-          bestRoute = {
-            path: [startPoint.coords, endPoint.coords],
-            totalTime: 600000, // 10분
-            totalDistance: 10000, // 10km
-            order: [startPoint.name, endPoint.name]
-          };
-        }
-      } else {
-        console.log('Finding optimal route with waypoints');
-        const waypointPermutations = getPermutations(waypoints);
+    setOptimizedRoute(mockRoute);
+    setLocations(mockRoute.order);
 
-        for (const perm of waypointPermutations) {
-          const currentOrderCoords = [
-            startPoint.coords,
-            ...perm.map(wp => wp.coords),
-            endPoint.coords,
-          ];
-
-          console.log('Testing route order:', currentOrderCoords);
-          const route = await getDirections(currentOrderCoords);
-
-          if (route && route.totalTime < minTime) {
-            minTime = route.totalTime;
-            bestRoute = {
-              path: route.path,
-              totalTime: route.totalTime,
-              totalDistance: route.totalDistance,
-              order: [startPoint.name, ...perm.map(wp => wp.name), endPoint.name],
-            };
-            console.log('Better route found:', bestRoute);
-          }
-        }
-
-        // API 실패 시 mock 데이터 사용
-        if (!bestRoute) {
-          console.log('API failed, using mock data for waypoints');
-          const allCoords = [startPoint.coords, ...waypoints.map(wp => wp.coords), endPoint.coords];
-          bestRoute = {
-            path: allCoords,
-            totalTime: allCoords.length * 300000, // 5분 per point
-            totalDistance: (allCoords.length - 1) * 5000, // 5km per segment
-            order: [startPoint.name, ...waypoints.map(wp => wp.name), endPoint.name]
-          };
-        }
-      }
-
-      if (bestRoute) {
-        console.log('Final optimized route:', bestRoute);
-        setOptimizedRoute(bestRoute);
-        setLocations(bestRoute.order);
-      } else {
-        console.error('No route found');
-        alert('경로를 찾을 수 없습니다. 장소를 확인해주세요.');
-      }
-    } catch (error) {
-      console.error('Error during route optimization:', error);
-      // 에러 시에도 mock 데이터로 표시
-      const allCoords = geocodedLocations.map(loc => loc.coords);
-      const mockRoute = {
-        path: allCoords,
-        totalTime: allCoords.length * 300000,
-        totalDistance: (allCoords.length - 1) * 5000,
-        order: geocodedLocations.map(loc => loc.name)
-      };
-      setOptimizedRoute(mockRoute);
-      setLocations(mockRoute.order);
-    } finally {
-      setOptimizing(false);
-    }
+    alert(`Geocoding 테스트 완료!\n\n좌표 변환 결과:\n${geocodedLocations.map((loc, i) => `${i+1}. ${loc.name}: (${loc.coords.lat}, ${loc.coords.lng})`).join('\n')}\n\n콘솔에서 자세한 로그를 확인하세요.`);
   };
 
   return (
@@ -628,10 +556,10 @@ function App() {
             <button 
               className="optimize-button"
               onClick={handleOptimizeRoute} 
-              disabled={optimizing}
-              aria-label={optimizing ? "경로 최적화 중" : "경로 최적화"}
+              disabled={false}
+              aria-label="Geocoding 테스트"
             >
-              {optimizing ? '⏳ 최적화 중...' : '🚀 경로 최적화'}
+              🔍 Geocoding 테스트
             </button>
             {optimizedRoute && (
               <div className="route-summary" role="region" aria-label="최적화된 경로 정보">
