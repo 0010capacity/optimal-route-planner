@@ -7,21 +7,26 @@ import './App.css';
 function App() {
   // ... existing code ...
 
-  // Kakao Maps SDK 초기화
+    // Kakao Maps SDK v2 초기화 (React 앱에서 추가 모니터링)
   useEffect(() => {
-    const initKakao = () => {
-      if (window.kakaoMapsReady && window.kakao && window.kakao.maps && window.kakao.maps.services) {
-        console.log('✅ Kakao Maps SDK loaded and ready in React');
-        console.log('📋 Available kakao.maps properties:', Object.keys(window.kakao.maps));
-        console.log('📋 Available kakao.maps.services properties:', Object.keys(window.kakao.maps.services));
-        console.log('📋 Places service available:', typeof window.kakao.maps.services.Places);
+    console.log('🔄 React App: Kakao SDK v2 추가 모니터링 시작');
+
+    const checkKakaoInReact = () => {
+      if (window.kakaoSdkReady) {
+        console.log('🎉 React App: Kakao SDK v2가 완전히 준비됨');
+        console.log('📋 React App: Kakao 객체 상태:', {
+          kakao: typeof window.kakao,
+          maps: typeof window.kakao?.maps,
+          services: typeof window.kakao?.maps?.services,
+          places: typeof window.kakao?.maps?.services?.Places
+        });
       } else {
-        console.log('❌ Kakao Maps SDK not available in React, retrying...');
-        setTimeout(initKakao, 1000);
+        console.log('⏳ React App: Kakao SDK v2 준비 대기 중...');
+        setTimeout(checkKakaoInReact, 500);
       }
     };
 
-    initKakao();
+    checkKakaoInReact();
   }, []);
 
   // ... existing code ...
@@ -104,7 +109,8 @@ function App() {
         }
       }
       
-      const results = await searchPlaces(enhancedQuery, validCenter);
+      const searchResponse = await searchPlaces(enhancedQuery, validCenter);
+      const results = searchResponse.results || [];
       
       // 지도 중심과의 거리로 정렬하여 가까운 순으로 상위 10개 표시
       let sortedResults = results;
@@ -113,6 +119,7 @@ function App() {
           .map(result => {
             let distance = Infinity;
             if (result.mapx && result.mapy) {
+              // 기존 NAVER API 형식 (mapx, mapy)
               const resultLat = parseFloat(result.mapy) / 10000000;
               const resultLng = parseFloat(result.mapx) / 10000000;
               
@@ -120,6 +127,16 @@ function App() {
               distance = Math.sqrt(
                 Math.pow((resultLat - validCenter.lat) * 111000, 2) + // 위도 1도 ≈ 111km
                 Math.pow((resultLng - validCenter.lng) * 111000 * Math.cos(validCenter.lat * Math.PI / 180), 2) // 경도 보정
+              );
+            } else if (result.x && result.y) {
+              // Kakao SDK 형식 (x, y)
+              const resultLat = parseFloat(result.y);
+              const resultLng = parseFloat(result.x);
+              
+              // 두 좌표 간 거리 계산
+              distance = Math.sqrt(
+                Math.pow((resultLat - validCenter.lat) * 111000, 2) +
+                Math.pow((resultLng - validCenter.lng) * 111000 * Math.cos(validCenter.lat * Math.PI / 180), 2)
               );
             }
             
@@ -367,10 +384,25 @@ function App() {
     searchResults.slice(0, 10).forEach((result, index) => {
       const resultNumber = index + 1;
       const locationName = result.title.replace(/<[^>]*>/g, '');
-      const resultCoords = {
-        lat: parseFloat(result.mapy) / 10000000,
-        lng: parseFloat(result.mapx) / 10000000
-      };
+      
+      // 좌표 추출 (NAVER API 형식 또는 Kakao SDK 형식 지원)
+      let resultCoords;
+      if (result.mapx && result.mapy) {
+        // NAVER API 형식
+        resultCoords = {
+          lat: parseFloat(result.mapy) / 10000000,
+          lng: parseFloat(result.mapx) / 10000000
+        };
+      } else if (result.x && result.y) {
+        // Kakao SDK 형식
+        resultCoords = {
+          lat: parseFloat(result.y),
+          lng: parseFloat(result.x)
+        };
+      } else {
+        console.warn('No coordinates found for result:', result);
+        return;
+      }
 
       const searchMarker = new window.naver.maps.Marker({
         position: new window.naver.maps.LatLng(resultCoords.lat, resultCoords.lng),
@@ -737,11 +769,23 @@ function App() {
                           onClick={() => {
                             handleSearchResultSelect(result);
                             // 검색 결과 위치로 지도 중심 이동
-                            const resultCoords = {
-                              lat: parseFloat(result.mapy) / 10000000,
-                              lng: parseFloat(result.mapx) / 10000000
-                            };
-                            moveMapToLocation(resultCoords);
+                            let resultCoords;
+                            if (result.mapx && result.mapy) {
+                              // NAVER API 형식
+                              resultCoords = {
+                                lat: parseFloat(result.mapy) / 10000000,
+                                lng: parseFloat(result.mapx) / 10000000
+                              };
+                            } else if (result.x && result.y) {
+                              // Kakao SDK 형식
+                              resultCoords = {
+                                lat: parseFloat(result.y),
+                                lng: parseFloat(result.x)
+                              };
+                            }
+                            if (resultCoords) {
+                              moveMapToLocation(resultCoords);
+                            }
                           }}
                           className="search-result-text"
                           role="button"

@@ -1,36 +1,89 @@
 const NAVER_CLIENT_ID = process.env.REACT_APP_NAVER_CLIENT_ID || 'your_naver_client_id_here';
 const NAVER_CLIENT_SECRET = process.env.REACT_APP_NAVER_CLIENT_SECRET || 'your_naver_client_secret_here';
 
-// Naver Developers 오픈 API용 (Search API)
-const NAVER_SEARCH_CLIENT_ID = process.env.REACT_APP_NAVER_SEARCH_CLIENT_ID || 'your_naver_search_client_id_here';
-const NAVER_SEARCH_CLIENT_SECRET = process.env.REACT_APP_NAVER_SEARCH_CLIENT_SECRET || 'your_naver_search_client_secret_here';
+// Google Places API 키
+const GOOGLE_PLACES_API_KEY = process.env.REACT_APP_GOOGLE_PLACES_API_KEY || 'AIzaSyCuI4OfM-oPbnKoes_uaYfUWZ2f-btjgtQ';
 
-// Kakao API를 Firebase Functions를 통해 호출 (다시 복귀)
-export const searchPlaces = async (query, centerLocation = null) => {
-  if (!query) {
-    return [];
-  }
-
-  try {
-    const firebaseFunctionUrl = `https://us-central1-my-optimal-route-planner.cloudfunctions.net/searchPlacesKakao?query=${encodeURIComponent(query)}`;
-
-    console.log('� Calling Firebase Function for Kakao search:', firebaseFunctionUrl);
-
-    const response = await fetch(firebaseFunctionUrl);
-    console.log('📊 Firebase Function response status:', response.status);
-
-    if (response.ok) {
-      const data = await response.json();
-      console.log('📋 Firebase Function Kakao search response:', data);
-      return data;
-    } else {
-      console.error('❌ Firebase Function Kakao search failed:', response.statusText);
-      return [];
+// Kakao SDK를 사용한 장소 검색 함수 (REST에서 SDK로 완전 전환)
+export const searchPlaces = (query, options = {}) => {
+  return new Promise((resolve, reject) => {
+    if (!query) {
+      console.warn('Query is required for searchPlaces');
+      resolve([]);
+      return;
     }
-  } catch (error) {
-    console.error('💥 Error with Firebase Function Kakao search:', error);
-    return [];
-  }
+
+    // Kakao SDK v2 확인
+    if (!window.kakao || !window.kakao.maps || !window.kakao.maps.services) {
+      console.error('❌ Kakao SDK v2 not available');
+      resolve([]);
+      return;
+    }
+
+    console.log('✅ Kakao SDK v2 is available, proceeding with search');
+
+    const places = new window.kakao.maps.services.Places();
+
+    // SDK 옵션 설정 (REST 파라미터와 호환)
+    const searchOptions = {
+      category_group_code: options.category_group_code || undefined,
+      radius: options.radius || undefined,
+      size: options.size || 15,
+      page: options.page || 1,
+      sort: options.sort || window.kakao.maps.services.SortBy.ACCURACY,
+      ...options
+    };
+
+    // 중심 좌표 설정 (SDK 방식)
+    if (options.location) {
+      // location: "위도,경도" 형식
+      const [lat, lng] = options.location.split(',').map(coord => parseFloat(coord.trim()));
+      searchOptions.location = new window.kakao.maps.LatLng(lat, lng);
+    } else if (options.x && options.y) {
+      // x, y 파라미터
+      searchOptions.x = parseFloat(options.x);
+      searchOptions.y = parseFloat(options.y);
+    }
+
+    console.log('� Kakao SDK search options:', searchOptions);
+
+    // 키워드 검색 실행
+    places.keywordSearch(query, (data, status, pagination) => {
+      console.log('📋 Kakao SDK search status:', status);
+      console.log('📊 Kakao SDK search pagination:', pagination);
+
+      if (status === window.kakao.maps.services.Status.OK) {
+        const results = data.map(item => ({
+          title: item.place_name,
+          category: item.category_name || "장소",
+          telephone: item.phone || "",
+          address: item.address_name || "",
+          roadAddress: item.road_address_name || item.address_name || "",
+          mapx: item.x || "",
+          mapy: item.y || "",
+          place_url: item.place_url || "",
+          distance: item.distance || ""
+        }));
+
+        console.log('✅ Kakao SDK search successful, results:', results.length);
+        resolve({
+          results,
+          pagination: {
+            totalCount: pagination.totalCount,
+            hasNextPage: pagination.hasNextPage,
+            hasPrevPage: pagination.hasPrevPage,
+            current: pagination.current
+          }
+        });
+      } else if (status === window.kakao.maps.services.Status.ZERO_RESULT) {
+        console.log('⚠️ Kakao SDK search: No results found');
+        resolve({ results: [], pagination: null });
+      } else {
+        console.error('❌ Kakao SDK search failed:', status);
+        reject(new Error(`Search failed: ${status}`));
+      }
+    }, searchOptions);
+  });
 };
 
 // 두 지점 간 거리 계산 함수
@@ -43,7 +96,9 @@ const getDistance = (point1, point2) => {
     Math.sin(dLng/2) * Math.sin(dLng/2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   return R * c;
-};export const geocodeAddress = async (address) => {
+};
+
+export const geocodeAddress = async (address) => {
   if (!address) {
     console.log('No address provided to geocode');
     return null;

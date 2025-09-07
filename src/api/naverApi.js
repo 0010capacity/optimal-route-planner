@@ -1,41 +1,89 @@
 const NAVER_CLIENT_ID = process.env.REACT_APP_NAVER_CLIENT_ID || 'your_naver_client_id_here';
 const NAVER_CLIENT_SECRET = process.env.REACT_APP_NAVER_CLIENT_SECRET || 'your_naver_client_secret_here';
 
-// Naver Developers 오픈 API용 (Search API)
-const NAVER_SEARCH_CLIENT_ID = process.env.REACT_APP_NAVER_SEARCH_CLIENT_ID || 'your_naver_search_client_id_here';
-const NAVER_SEARCH_CLIENT_SECRET = process.env.REACT_APP_NAVER_SEARCH_CLIENT_SECRET || 'your_naver_search_client_secret_here';
-
-// Kakao API를 Firebase Functions를 통해 호출 (REST 방식)
-export const searchPlaces = async (query, centerLocation = null) => {
-  if (!query) {
-    return [];
-  }
-
-  try {
-    let firebaseFunctionUrl = `https://us-central1-my-optimal-route-planner.cloudfunctions.net/searchPlacesKakao?query=${encodeURIComponent(query)}`;
-
-    // 중심 좌표가 제공되면 추가 파라미터로 전달
-    if (centerLocation && centerLocation.lat && centerLocation.lng) {
-      firebaseFunctionUrl += `&x=${centerLocation.lng}&y=${centerLocation.lat}&radius=5000`;
+// Kakao SDK를 사용한 장소 검색 함수 (개선된 버전)
+export const searchPlaces = (query, options = {}) => {
+  return new Promise((resolve, reject) => {
+    if (!query) {
+      console.warn('Query is required for searchPlaces');
+      resolve([]);
+      return;
     }
 
-    console.log('📍 Calling Firebase Function for Kakao REST search:', firebaseFunctionUrl);
-
-    const response = await fetch(firebaseFunctionUrl);
-    console.log('📊 Firebase Function response status:', response.status);
-
-    if (response.ok) {
-      const data = await response.json();
-      console.log('📋 Firebase Function Kakao REST search response:', data);
-      return data;
-    } else {
-      console.error('❌ Firebase Function Kakao REST search failed:', response.statusText);
-      return [];
+    // Kakao SDK v2 확인
+    if (!window.kakao || !window.kakao.maps || !window.kakao.maps.services) {
+      console.error('❌ Kakao SDK v2 not available');
+      resolve([]);
+      return;
     }
-  } catch (error) {
-    console.error('💥 Error with Firebase Function Kakao REST search:', error);
-    return [];
-  }
+
+    console.log('✅ Kakao SDK v2 is available, proceeding with search');
+
+    const places = new window.kakao.maps.services.Places();
+
+    // 간소화된 검색 옵션 설정 (location 우선)
+    const searchOptions = {
+      // 결과 개수 (기본 15)
+      size: options.size || 15,
+
+      // 페이지 (기본 1)
+      page: options.page || 1,
+
+      // 정렬 옵션 (기본 정확도 순)
+      sort: options.sort || window.kakao.maps.services.SortBy.ACCURACY,
+    };
+
+    // 중심 좌표 설정 (location만 사용)
+    if (options.location) {
+      // location: LatLng 객체 또는 "위도,경도" 문자열
+      if (options.location instanceof window.kakao.maps.LatLng) {
+        searchOptions.location = options.location;
+      } else if (typeof options.location === 'string') {
+        const [lat, lng] = options.location.split(',').map(coord => parseFloat(coord.trim()));
+        searchOptions.location = new window.kakao.maps.LatLng(lat, lng);
+      }
+      console.log('📍 Using location-based search:', searchOptions.location);
+    }
+
+    console.log('🔍 Simplified Kakao SDK search options:', searchOptions);
+
+    // 키워드 검색 실행
+    places.keywordSearch(query, (data, status, pagination) => {
+      console.log('📋 Kakao SDK search status:', status);
+      console.log('📊 Kakao SDK search pagination:', pagination);
+
+      if (status === window.kakao.maps.services.Status.OK) {
+        const results = data.map(item => ({
+          title: item.place_name,
+          category: item.category_name || "장소",
+          telephone: item.phone || "",
+          address: item.address_name || "",
+          roadAddress: item.road_address_name || item.address_name || "",
+          mapx: item.x || "",
+          mapy: item.y || "",
+          place_url: item.place_url || "",
+          distance: item.distance || "",
+        }));
+
+        console.log('✅ Kakao SDK search successful, results:', results.length);
+        resolve({
+          results,
+          pagination: {
+            totalCount: pagination.totalCount,
+            hasNextPage: pagination.hasNextPage,
+            hasPrevPage: pagination.hasPrevPage,
+            current: pagination.current,
+          }
+        });
+      } else if (status === window.kakao.maps.services.Status.ZERO_RESULT) {
+        console.log('⚠️ Kakao SDK search: No results found');
+        resolve({ results: [], pagination: null });
+      } else {
+        console.error('❌ Kakao SDK search failed:', status);
+        reject(new Error(`Search failed: ${status}`));
+      }
+    }, searchOptions);
+  });
 };
 
 // 두 지점 간 거리 계산 함수
@@ -78,24 +126,6 @@ export const geocodeAddress = async (address) => {
     }
   } catch (error) {
     console.error('Error with Firebase Function geocoding:', error);
-  }
-
-  // Fallback to Google Places API
-  console.log('Falling back to Google Places API for geocoding');
-  try {
-    const apiKey = 'AIzaSyCuI4OfM-oPbnKoes_uaYfUWZ2f-btjgtQ';
-    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`;
-
-    const response = await fetch(url);
-    const data = await response.json();
-
-    if (data.status === 'OK' && data.results && data.results.length > 0) {
-      const location = data.results[0].geometry.location;
-      console.log('Geocoded location via Google:', location);
-      return { lat: location.lat, lng: location.lng };
-    }
-  } catch (error) {
-    console.error('Error with Google Places API geocoding:', error);
   }
 
   // Return mock data as last resort
