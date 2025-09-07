@@ -36,10 +36,6 @@
               // Maps SDK 로드
               window.kakao.maps.load(() => {
                 console.log('🚀 Kakao Maps SDK v2 로드 완료');
-                console.log('📋 사용 가능한 kakao.maps 속성:', Object.keys(window.kakao.maps));
-                console.log('📋 사용 가능한 kakao.maps.services 속성:', Object.keys(window.kakao.maps.services));
-                console.log('📋 Places 서비스 사용 가능:', typeof window.kakao.maps.services.Places);
-
                 window.kakaoSdkReady = true;
                 console.log('🎉 Kakao SDK v2 완전 초기화 완료 - 모든 기능 사용 가능');
               });

@@ -9,27 +9,19 @@ const NAVER_CLIENT_SECRET = process.env.REACT_APP_NAVER_CLIENT_SECRET || 'your_n
 // NAVER Geocoding API를 사용한 주소 변환
 export const geocodeAddress = async (address) => {
   if (!address) {
-    console.log('No address provided to geocode');
     return null;
   }
-
-  console.log('Geocoding address:', address);
 
   // Firebase Functions를 통한 NAVER Geocoding API 호출
   try {
     const firebaseFunctionUrl = `https://geocodeaddress-weu5x3oaea-uc.a.run.app?address=${encodeURIComponent(address)}`;
 
-    console.log('Calling Firebase Function for geocoding:', firebaseFunctionUrl);
-
     const response = await fetch(firebaseFunctionUrl);
-    console.log('Firebase Function response status:', response.status);
 
     if (response.ok) {
       const data = await response.json();
-      console.log('Firebase Function geocoding response:', data);
 
       if (data.lat && data.lng) {
-        console.log('Geocoded location via Firebase:', data);
         return { lat: data.lat, lng: data.lng };
       }
     }
@@ -38,7 +30,6 @@ export const geocodeAddress = async (address) => {
   }
 
   // Return mock data as last resort
-  console.log('Using mock data for geocoding');
   return { lat: 37.5665, lng: 126.9780 }; // Seoul coordinates
 };
 
@@ -49,13 +40,9 @@ export const getDirections = async (coordsArray) => {
     return null;
   }
 
-  console.log('Getting directions for coords:', coordsArray);
-
   // Firebase Functions를 통한 NAVER Directions API 호출
   try {
     const firebaseFunctionUrl = `https://getdirections-weu5x3oaea-uc.a.run.app`;
-
-    console.log('Calling Firebase Function for directions:', firebaseFunctionUrl);
 
     const response = await fetch(firebaseFunctionUrl, {
       method: 'POST',
@@ -65,14 +52,10 @@ export const getDirections = async (coordsArray) => {
       body: JSON.stringify({ coordsArray }),
     });
 
-    console.log('Firebase Function response status:', response.status);
-
     if (response.ok) {
       const data = await response.json();
-      console.log('Firebase Function directions response:', data);
 
       if (data.path && data.totalTime && data.totalDistance) {
-        console.log('Real directions received via Firebase:', data);
         return data;
       }
     }
@@ -81,7 +64,6 @@ export const getDirections = async (coordsArray) => {
   }
 
   // Fallback to mock data
-  console.log('Using mock directions data');
   const mockPath = coordsArray.map((coord, index) => ({
     lat: coord.lat + (Math.random() - 0.5) * 0.01,
     lng: coord.lng + (Math.random() - 0.5) * 0.01,

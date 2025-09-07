@@ -17,8 +17,6 @@ export const searchPlaces = (query, options = {}) => {
       return;
     }
 
-    console.log('✅ Kakao SDK v2 is available, proceeding with search');
-
     const places = new window.kakao.maps.services.Places();
 
     // 간소화된 검색 옵션 설정 (location 우선)
@@ -42,16 +40,10 @@ export const searchPlaces = (query, options = {}) => {
         const [lat, lng] = options.location.split(',').map(coord => parseFloat(coord.trim()));
         searchOptions.location = new window.kakao.maps.LatLng(lat, lng);
       }
-      console.log('📍 Using location-based search:', searchOptions.location);
     }
-
-    console.log('🔍 Kakao SDK search options:', searchOptions);
 
     // 키워드 검색 실행
     places.keywordSearch(query, (data, status, pagination) => {
-      console.log('📋 Kakao SDK search status:', status);
-      console.log('📊 Kakao SDK search pagination:', pagination);
-
       if (status === window.kakao.maps.services.Status.OK) {
         const results = data.map(item => ({
           title: item.place_name,
@@ -65,7 +57,6 @@ export const searchPlaces = (query, options = {}) => {
           distance: item.distance || "",
         }));
 
-        console.log('✅ Kakao SDK search successful, results:', results.length);
         resolve({
           results,
           pagination: {
@@ -76,7 +67,6 @@ export const searchPlaces = (query, options = {}) => {
           }
         });
       } else if (status === window.kakao.maps.services.Status.ZERO_RESULT) {
-        console.log('⚠️ Kakao SDK search: No results found');
         resolve({ results: [], pagination: null });
       } else {
         console.error('❌ Kakao SDK search failed:', status);
