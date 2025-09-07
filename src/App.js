@@ -32,15 +32,12 @@ function App() {
   });
   const [geocodedLocations, setGeocodedLocations] = useState([]);
   const [optimizedRoute, setOptimizedRoute] = useState(null);
-  const [draggedIndex, setDraggedIndex] = useState(null);
-  const [dragOverIndex, setDragOverIndex] = useState(null);
   const [showMapSelector, setShowMapSelector] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
 
   const {
     mapRef,
     mapCenter,
-    setMapCenter,
     userLocation,
     mapInstance,
     markersRef,
@@ -199,56 +196,10 @@ function App() {
     setLocations(newLocations);
   }, [locations]);
 
-  const handleDragStart = useCallback((e, index) => {
-    // 이벤트 객체 안전성 확인
-    if (e && typeof e.stopPropagation === 'function') {
-      e.stopPropagation();
-    }
-
-    setDraggedIndex(index);
-
-    // dataTransfer 객체 안전성 확인
-    if (e && e.dataTransfer) {
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', index.toString());
-    }
-  }, []);
-
-  const handleDragOver = useCallback((e, index) => {
-    e.preventDefault();
-    e.stopPropagation();
-    e.dataTransfer.dropEffect = 'move';
-    setDragOverIndex(index);
-  }, []);
-
-  const handleDragLeave = useCallback(() => {
-    setDragOverIndex(null);
-  }, []);
-
-  const handleDrop = useCallback((e, dropIndex) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const draggedIndexStr = e.dataTransfer.getData('text/plain');
-    const draggedIndex = parseInt(draggedIndexStr, 10);
-
-    if (isNaN(draggedIndex) || draggedIndex === dropIndex) {
-      setDragOverIndex(null);
-      return;
-    }
-
-    const newLocations = [...locations];
-    const draggedItem = newLocations[draggedIndex];
-    newLocations.splice(draggedIndex, 1);
-    newLocations.splice(dropIndex, 0, draggedItem);
-
+  // @dnd-kit을 위한 새로운 순서 변경 핸들러
+  const handleReorderLocations = useCallback((newLocations) => {
     setLocations(newLocations);
-    setDraggedIndex(null);
-    setDragOverIndex(null);
-  }, [locations]);
-
-  const handleDragEnd = useCallback(() => {
-    setDraggedIndex(null);
-    setDragOverIndex(null);
+    setOptimizedRoute(null); // 순서가 바뀌면 최적화 결과 초기화
   }, []);
 
   const handleOptimizeRoute = useCallback(async () => {
@@ -405,13 +356,7 @@ function App() {
           onLocationClick={handleLocationClick}
           onAddLocation={handleAddLocation}
           onOptimizeRoute={handleOptimizeRoute}
-          onDragStart={handleDragStart}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          onDragEnd={handleDragEnd}
-          draggedIndex={draggedIndex}
-          dragOverIndex={dragOverIndex}
+          onReorderLocations={handleReorderLocations}
           onDeleteLocation={handleDeleteLocation}
           isOptimizing={isOptimizing}
           onShareRoute={handleShareRoute}
