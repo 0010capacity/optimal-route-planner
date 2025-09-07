@@ -1,4 +1,5 @@
 import React from 'react';
+import { Icon } from './Icon';
 
 const SearchSection = ({
   searchQuery,
@@ -19,14 +20,14 @@ const SearchSection = ({
       <div className="search-section">
         <div className="search-header">
           <button className="back-button" onClick={onBackToList} aria-label="목록으로 돌아가기">
-            ← 뒤로가기
+            <Icon name="back" size={16} />
           </button>
           <button
             className={`favorites-toggle ${showFavorites ? 'active' : ''}`}
             onClick={onToggleFavorites}
             aria-label={showFavorites ? "즐겨찾기 숨기기" : "즐겨찾기 보기"}
           >
-            {showFavorites ? '⭐ 즐겨찾기 숨기기' : '☆ 즐겨찾기 보기'}
+            <Icon name="star" size={16} />
           </button>
         </div>
 
@@ -43,7 +44,8 @@ const SearchSection = ({
                     tabIndex={0}
                     aria-label={`${favorite} 선택`}
                   >
-                    📍 {favorite}
+                    <Icon name="location" size={14} />
+                    {favorite}
                   </span>
                   <button
                     className="remove-favorite-button"
@@ -64,13 +66,13 @@ const SearchSection = ({
             type="text"
             value={searchQuery}
             onChange={(e) => onSearchQueryChange(e.target.value)}
-            placeholder="주소를 입력하세요 (예: 서울특별시 강남구 역삼동 858)"
+            placeholder="장소를 검색하세요"
             autoFocus
-            aria-label="주소 검색"
+            aria-label="장소 검색"
             role="searchbox"
           />
 
-          {loading && <p role="status" aria-live="polite">🔍 검색 중...</p>}
+          {loading && <p role="status" aria-live="polite" className="loading-status"><Icon name="search" size={16} /> 검색 중...</p>}
 
           {searchResults.length > 0 && (
             <ul className="search-results" role="listbox" aria-label="검색 결과">
@@ -106,7 +108,7 @@ const SearchSection = ({
           )}
 
           {searchQuery && !loading && searchResults.length === 0 && (
-            <p className="no-results" role="status" aria-live="polite">❌ 검색 결과가 없습니다. 주소 형식을 확인하세요 (예: 서울특별시 강남구 역삼동 858).</p>
+            <p className="no-results" role="status" aria-live="polite">❌ 검색 결과가 없습니다. 다른 검색어로 시도해보세요.</p>
           )}
         </div>
       </div>
