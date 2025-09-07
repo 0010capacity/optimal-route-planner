@@ -14,7 +14,8 @@ const LocationList = ({
   onDragEnd,
   draggedIndex,
   dragOverIndex,
-  onDeleteLocation
+  onDeleteLocation,
+  isOptimizing
 }) => {
   // 경로 순서에 따른 장소 이름 매핑
   const getRouteDisplayNames = () => {
@@ -46,6 +47,14 @@ const LocationList = ({
   const arrivalTimes = getEstimatedArrivalTimes();
   return (
     <>
+      {isOptimizing && (
+        <div className="loading-overlay">
+          <div className="loading-content">
+            <div className="loading-spinner"></div>
+            <div className="loading-text">경로를 최적화하고 있습니다...</div>
+          </div>
+        </div>
+      )}
       <div className="location-list-section">
         <ul className="location-list">
           {locations.map((location, index) => (
@@ -59,7 +68,7 @@ const LocationList = ({
               <div className="location-visual">
                 <div
                   className="location-dot"
-                  draggable
+                  draggable={!isOptimizing}
                   onDragStart={(e) => onDragStart(e, index)}
                   onDragEnd={onDragEnd}
                 ></div>
@@ -69,14 +78,16 @@ const LocationList = ({
                 <button
                   className="location-button"
                   onClick={() => onLocationClick(index)}
+                  disabled={isOptimizing}
                 >
                   {location.name || '장소를 선택하세요'}
                 </button>
               </div>
-              {locations.length > 2 && index !== 0 && index !== locations.length - 1 && (
+              {locations.length > 2 && (
                 <button
                   className="delete-button"
                   onClick={() => onDeleteLocation(index)}
+                  disabled={isOptimizing}
                 >
                   ×
                 </button>
@@ -89,17 +100,18 @@ const LocationList = ({
           onClick={onAddLocation}
           aria-label="새 장소 추가"
           title="새 장소 추가"
+          disabled={isOptimizing}
         >
           +
         </button>
-        <button
+                <button
           className="optimize-button"
           onClick={onOptimizeRoute}
-          disabled={false}
+          disabled={isOptimizing}
           aria-label="경로 최적화"
         >
           <Icon name="optimize" size={16} />
-          경로 최적화
+          {isOptimizing ? '최적화 중...' : '경로 최적화'}
         </button>
         {optimizedRoute && (
           <div className="route-summary" role="region" aria-label="최적화된 경로 정보">
@@ -140,6 +152,14 @@ const LocationList = ({
                         {(() => {
                           const segmentMinutes = Math.round(optimizedRoute.segmentTimes[stopIndex] / 60);
                           return segmentMinutes > 0 ? `${segmentMinutes}분` : '<1분';
+                        })()}
+                        <span className="segment-separator">•</span>
+                        <Icon name="distance" size={10} />
+                        {(() => {
+                          const segmentDistance = optimizedRoute.segmentDistances ?
+                            optimizedRoute.segmentDistances[stopIndex] / 1000 :
+                            (optimizedRoute.totalDistance / 1000) / (optimizedRoute.order.length - 1);
+                          return segmentDistance.toFixed(1) + 'km';
                         })()}
                       </div>
                     )}

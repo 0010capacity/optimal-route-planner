@@ -70,36 +70,17 @@ export const getDirections = async (coordsArray, namesArray) => {
       if (data.path && data.totalTime && data.totalDistance) {
         return data;
       } else {
-        console.log('Invalid response from Firebase Function, using mock data');
-        return getMockDirectionsResult(coordsArray, namesArray);
+        console.log('Invalid response from Firebase Function');
+        return null;
       }
     } else {
       console.log('Firebase Function response status:', response.status);
-      return getMockDirectionsResult(coordsArray, namesArray);
+      return null;
     }
   } catch (error) {
     console.error('Directions error:', error);
-    return getMockDirectionsResult(coordsArray, namesArray);
+    return null;
   }
 };
 
-// Mock data helper function
-const getMockDirectionsResult = (coordsArray, namesArray) => {
-  const mockPath = coordsArray.map((coord, index) => ({
-    lat: coord.lat + (Math.random() - 0.5) * 0.01,
-    lng: coord.lng + (Math.random() - 0.5) * 0.01,
-  }));
 
-  const segmentTimes = [];
-  for (let i = 0; i < coordsArray.length - 1; i++) {
-    segmentTimes.push(Math.floor(Math.random() * 1800) + 300); // 5-35분
-  }
-
-  return {
-    path: mockPath,
-    totalTime: segmentTimes.reduce((a, b) => a + b, 0),
-    totalDistance: 15000,
-    segmentTimes,
-    order: namesArray || coordsArray.map((coord, index) => `Point ${index + 1}`)
-  };
-};

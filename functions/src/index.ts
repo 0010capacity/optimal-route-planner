@@ -99,17 +99,21 @@ export const getDirections = onRequest(
                         }));
                     }
 
-                    // Extract segment times from sections
+                    // Extract segment times and distances from sections
                     let segmentTimes: number[] = [];
+                    let segmentDistances: number[] = [];
                     if (route.section && route.section.length > 0) {
                         segmentTimes = route.section.map((section: any) =>
                             section.distance / 1000 / 30 * 3600
                         ); // Estimate time based on distance and avg speed 30km/h
+                        segmentDistances = route.section.map((section: any) =>
+                            section.distance
+                        ); // Distance in meters
                     } else {
-                        // Fallback: divide total time equally
-                        const numSegments = coordsArray.length - 1;
-                        const segmentTime = totalTime / numSegments;
-                        segmentTimes = Array(numSegments).fill(segmentTime);
+                        // If no section data, return error
+                        logger.warn("No section data found in route response");
+                        response.status(404).json({error: "No route section data found"});
+                        return;
                     }
 
                     response.json({
@@ -117,6 +121,7 @@ export const getDirections = onRequest(
                         totalTime,
                         totalDistance,
                         segmentTimes,
+                        segmentDistances,
                         order: namesArray || coordsArray.map(
                             (coord: Coordinate, index: number) => `Point ${index + 1}`,
                         ),

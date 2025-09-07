@@ -33,6 +33,7 @@ function App() {
   const [optimizedRoute, setOptimizedRoute] = useState(null);
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
+  const [isOptimizing, setIsOptimizing] = useState(false);
 
   const {
     mapRef,
@@ -252,6 +253,8 @@ function App() {
       return;
     }
 
+    setIsOptimizing(true);
+
     try {
       const start = validLocations[0];
       const end = validLocations[validLocations.length - 1];
@@ -263,11 +266,6 @@ function App() {
         const result = await getDirections(coordsArray, namesArray);
         if (result) {
           setOptimizedRoute(result);
-          const totalMinutes = Math.round(result.totalTime / 60000);
-          const hours = Math.floor(totalMinutes / 60);
-          const minutes = totalMinutes % 60;
-          const timeString = hours > 0 ? `${hours}시간 ${minutes}분` : `${minutes}분`;
-          alert(`경로 계산 완료!\n\n총 거리: ${(result.totalDistance / 1000).toFixed(1)}km\n예상 시간: ${timeString}`);
         }
         return;
       }
@@ -296,18 +294,13 @@ function App() {
           ...bestRoute,
           order: [0, ...bestRoute.waypointsOrder.map((_, idx) => idx + 1), bestRoute.waypointsOrder.length + 1]
         });
-
-        const totalMinutes = Math.round(bestRoute.totalTime / 60000);
-        const hours = Math.floor(totalMinutes / 60);
-        const minutes = totalMinutes % 60;
-        const timeString = hours > 0 ? `${hours}시간 ${minutes}분` : `${minutes}분`;
-
-        alert(`경로 최적화 완료!\n\n총 거리: ${(bestRoute.totalDistance / 1000).toFixed(1)}km\n예상 시간: ${timeString}`);
       } else {
         alert('경로를 계산할 수 없습니다. 다시 시도해주세요.');
       }
     } catch (error) {
       alert('경로 최적화 중 오류가 발생했습니다.');
+    } finally {
+      setIsOptimizing(false);
     }
   }, [geocodedLocations, locations]);
 
@@ -338,6 +331,7 @@ function App() {
           draggedIndex={draggedIndex}
           dragOverIndex={dragOverIndex}
           onDeleteLocation={handleDeleteLocation}
+          isOptimizing={isOptimizing}
         />
       ) : (
         <SearchSection
