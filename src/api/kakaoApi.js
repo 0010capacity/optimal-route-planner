@@ -51,8 +51,8 @@ export const searchPlaces = (query, options = {}) => {
           telephone: item.phone || "",
           address: item.address_name || "",
           roadAddress: item.road_address_name || item.address_name || "",
-          mapx: item.x || "",
-          mapy: item.y || "",
+          x: item.x || "",  // 경도 (longitude)
+          y: item.y || "",  // 위도 (latitude)
           place_url: item.place_url || "",
           distance: item.distance || "",
         }));

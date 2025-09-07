@@ -113,12 +113,17 @@ function App() {
     return R * c;
   };
 
-  // Geocoding 로직
+  // Geocoding 로직 - Kakao 좌표가 있는 경우 생략
   useEffect(() => {
     const geocodeAllLocations = async () => {
       const geocoded = [];
       for (const loc of locations) {
-        if (loc.address && loc.address.trim() !== '') {
+        // 이미 Kakao에서 좌표를 받은 경우 Geocoding 생략
+        if (loc.coords && loc.coords.lat && loc.coords.lng) {
+          geocoded.push({ name: loc.name, coords: loc.coords });
+        }
+        // 주소가 있고 좌표가 없는 경우에만 Geocoding
+        else if (loc.address && loc.address.trim() !== '') {
           try {
             const coords = await geocodeAddress(loc.address);
             if (coords) {
@@ -382,10 +387,42 @@ function App() {
     if (editingIndex === null) return;
 
     const locationName = result.title.replace(/<[^>]*>/g, '');
-    const coords = result.x && result.y ? {
-      lat: parseFloat(result.y),
-      lng: parseFloat(result.x)
-    } : null;
+    
+    // 더 robust한 좌표 검증
+    const validateAndParseCoords = (x, y) => {
+      if (!x || !y) return null;
+      
+      // 빈 문자열이나 undefined 체크
+      const xStr = String(x).trim();
+      const yStr = String(y).trim();
+      
+      if (!xStr || !yStr || xStr === '' || yStr === '') return null;
+      
+      const lat = parseFloat(yStr);
+      const lng = parseFloat(xStr);
+      
+      // 유효한 좌표 범위 체크 (대한민국 범위)
+      if (isNaN(lat) || isNaN(lng)) return null;
+      if (lat < 33 || lat > 39 || lng < 124 || lng > 132) return null;
+      
+      return { lat, lng };
+    };
+    
+    const coords = validateAndParseCoords(result.x, result.y);
+
+    // 선택된 장소 정보 출력 (좌표 검증 결과 포함)
+    console.log('🎯 선택된 장소 정보:', {
+      원본결과: result,
+      장소명: locationName,
+      주소: result.roadAddress || result.address || '주소 정보 없음',
+      좌표: coords ? `${coords.lat}, ${coords.lng}` : '좌표 정보 없음 (Geocoding 필요)',
+      원본좌표값: { x: result.x, y: result.y },
+      좌표유효성: coords ? '✅ 유효' : '❌ 유효하지 않음',
+      카테고리: result.category || '카테고리 없음',
+      전화번호: result.telephone || '전화번호 없음',
+      거리: result.distance || '거리 정보 없음',
+      위치인덱스: editingIndex
+    });
 
     const newLocations = [...locations];
     newLocations[editingIndex] = {
@@ -399,6 +436,30 @@ function App() {
     setEditingIndex(null);
     setSearchQuery('');
     setSearchResults([]);
+
+    // 좌표가 없는 경우 백그라운드에서 Geocoding 시도
+    if (!coords) {
+      const address = result.roadAddress || result.address || locationName;
+      if (address && address.trim()) {
+        console.log('📍 좌표 없는 장소, Geocoding 시도:', address);
+        geocodeAddress(address).then(geocodedCoords => {
+          if (geocodedCoords) {
+            console.log('✅ Geocoding 성공:', geocodedCoords);
+            const updatedLocations = [...locations];
+            updatedLocations[editingIndex] = {
+              name: locationName,
+              address: result.roadAddress || result.address || locationName,
+              coords: geocodedCoords
+            };
+            setLocations(updatedLocations);
+          } else {
+            console.log('❌ Geocoding 실패 - 좌표 정보 없음');
+          }
+        }).catch(error => {
+          console.error('❌ Geocoding 오류:', error);
+        });
+      }
+    }
   }, [editingIndex, locations]);
 
   const handleBackToList = useCallback(() => {
@@ -476,7 +537,7 @@ function App() {
     newLocations[editingIndex] = {
       name: locationName,
       address: locationName,
-      coords: null
+      coords: null  // 좌표가 없으므로 Geocoding 필요
     };
     setLocations(newLocations);
     setCurrentMode('list');

@@ -175,8 +175,8 @@ export const geocodeAddress = onRequest(
         fetch(url, {
             method: "GET",
             headers: {
-                "X-NCP-APIGW-API-KEY-ID": naverClientId,
-                "X-NCP-APIGW-API-KEY": naverClientSecret,
+                "x-ncp-apigw-api-key-id": naverClientId,
+                "x-ncp-apigw-api-key": naverClientSecret,
                 "Accept": "application/json",
             },
         })
