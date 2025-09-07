@@ -64,12 +64,10 @@ function App() {
   // Geocoding 로직
   useEffect(() => {
     const geocodeAllLocations = async () => {
-      console.log('🔄 Geocoding 시작:', locations);
       const geocoded = [];
       for (const loc of locations) {
         // 빈 이름의 장소는 건너뛰기
         if (!loc.name || loc.name.trim() === '') {
-          console.log('⚠️ 빈 이름의 장소 건너뛰기:', loc);
           continue;
         }
 
@@ -81,22 +79,18 @@ function App() {
             if (coords) {
               geocoded.push({ name: loc.name, coords });
             } else {
-              console.log('⚠️ Geocoding 실패, 기본 좌표 사용:', loc);
               // Geocoding 실패 시에도 장소를 추가 (지도에 표시하기 위해)
               geocoded.push({ name: loc.name, coords: { lat: 37.5665, lng: 126.9780 } });
             }
           } catch (error) {
-            console.error('Geocoding failed for:', loc.address, error);
             // 에러 발생 시에도 장소를 추가
             geocoded.push({ name: loc.name, coords: { lat: 37.5665, lng: 126.9780 } });
           }
         } else {
-          console.log('⚠️ 주소 정보 없음:', loc);
           // 주소가 없어도 이름이 있으면 기본 좌표로 추가
           geocoded.push({ name: loc.name, coords: { lat: 37.5665, lng: 126.9780 } });
         }
       }
-      console.log('✅ Geocoding 완료:', geocoded);
       setGeocodedLocations(geocoded);
     };
 
@@ -154,20 +148,6 @@ function App() {
     
     const coords = validateAndParseCoords(result.x, result.y);
 
-    // 선택된 장소 정보 출력 (좌표 검증 결과 포함)
-    console.log('🎯 선택된 장소 정보:', {
-      원본결과: result,
-      장소명: locationName,
-      주소: result.roadAddress || result.address || '주소 정보 없음',
-      좌표: coords ? `${coords.lat}, ${coords.lng}` : '좌표 정보 없음 (Geocoding 필요)',
-      원본좌표값: { x: result.x, y: result.y },
-      좌표유효성: coords ? '✅ 유효' : '❌ 유효하지 않음',
-      카테고리: result.category || '카테고리 없음',
-      전화번호: result.telephone || '전화번호 없음',
-      거리: result.distance || '거리 정보 없음',
-      위치인덱스: editingIndex
-    });
-
     updateLocation(editingIndex, {
       name: locationName,
       address: result.roadAddress || result.address || locationName,
@@ -182,20 +162,16 @@ function App() {
     if (!coords) {
       const address = result.roadAddress || result.address || locationName;
       if (address && address.trim()) {
-        console.log('📍 좌표 없는 장소, Geocoding 시도:', address);
         geocodeAddress(address).then(geocodedCoords => {
           if (geocodedCoords) {
-            console.log('✅ Geocoding 성공:', geocodedCoords);
             updateLocation(editingIndex, {
               name: locationName,
               address: result.roadAddress || result.address || locationName,
               coords: geocodedCoords
             });
-          } else {
-            console.log('❌ Geocoding 실패 - 좌표 정보 없음');
           }
         }).catch(error => {
-          console.error('❌ Geocoding 오류:', error);
+          // Geocoding 오류는 무시
         });
       }
     }
@@ -270,22 +246,10 @@ function App() {
       !isNaN(loc.coords.lat) && !isNaN(loc.coords.lng)
     );
 
-    console.log('🚀 경로 최적화 시도:', {
-      totalLocations: locations.length,
-      geocodedLocations: geocodedLocations.length,
-      validLocations: validLocations.length,
-      validLocationsData: validLocations
-    });
-
     if (validLocations.length < 2) {
       alert(`최소 두 개 이상의 유효한 장소가 필요합니다.\n현재 유효한 장소: ${validLocations.length}개`);
       return;
     }
-
-    console.log('🚀 경로 최적화 시작:', {
-      장소수: validLocations.length,
-      장소목록: validLocations.map(loc => ({ 이름: loc.name, 좌표: loc.coords }))
-    });
 
     try {
       const start = validLocations[0];
@@ -340,7 +304,6 @@ function App() {
         alert('경로를 계산할 수 없습니다. 다시 시도해주세요.');
       }
     } catch (error) {
-      console.error('❌ Directions API 오류:', error);
       alert('경로 최적화 중 오류가 발생했습니다.');
     }
   }, [geocodedLocations, locations]);

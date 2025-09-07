@@ -30,18 +30,9 @@ export const useMapMarkers = (mapInstance, geocodedLocations, userLocation, sear
 
     // 최적화된 경로 표시
     if (optimizedRoute && optimizedRoute.path && optimizedRoute.path.length > 0) {
-      console.log('🛣️ 경로 표시 시작:', {
-        경로포인트수: optimizedRoute.path.length,
-        전체시간: optimizedRoute.totalTime,
-        총거리: optimizedRoute.totalDistance,
-        경로데이터: optimizedRoute.path.slice(0, 5) // 처음 5개 포인트만 로그
-      });
-
       const pathCoords = optimizedRoute.path.map(coord =>
         new window.naver.maps.LatLng(coord.lat, coord.lng)
       );
-
-      console.log('🗺️ 변환된 경로 좌표:', pathCoords.slice(0, 3)); // 처음 3개만 로그
 
       const polyline = new window.naver.maps.Polyline({
         path: pathCoords,
@@ -53,7 +44,6 @@ export const useMapMarkers = (mapInstance, geocodedLocations, userLocation, sear
       });
 
       polylineRef.current = polyline;
-      console.log('✅ 폴리라인 생성 완료');
 
       // 경로가 보이도록 지도 범위 조정
       if (pathCoords.length > 0) {
@@ -62,11 +52,8 @@ export const useMapMarkers = (mapInstance, geocodedLocations, userLocation, sear
         mapInstance.fitBounds(bounds);
         setTimeout(() => {
           mapInstance.setZoom(mapInstance.getZoom() - 1);
-          console.log('📍 지도 줌 레벨 조정 완료');
         }, 100);
       }
-    } else {
-      console.log('❌ 경로 데이터 없음:', optimizedRoute);
     }
 
     // 사용자 위치 마커

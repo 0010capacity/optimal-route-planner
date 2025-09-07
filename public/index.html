@@ -24,24 +24,17 @@
 
         // 콜백 함수 정의
         window.initKakaoSdk = function() {
-          console.log('� Kakao SDK v2 초기화 시도 시작');
-
           if (window.kakao && window.kakao.maps) {
-            console.log('✅ Kakao SDK v2 발견됨');
-
             try {
               // v2에서는 appkey를 URL로 전달하므로 별도 init() 불필요
-              console.log('🎯 Kakao SDK v2 초기화 (URL 파라미터 방식 사용)');
 
               // Maps SDK 로드
               window.kakao.maps.load(() => {
-                console.log('🚀 Kakao Maps SDK v2 로드 완료');
                 window.kakaoSdkReady = true;
-                console.log('🎉 Kakao SDK v2 완전 초기화 완료 - 모든 기능 사용 가능');
               });
 
             } catch (error) {
-              console.error('❌ Kakao SDK v2 초기화 실패:', error);
+              // Kakao SDK 초기화 실패 시 무시
             }
           }
         };
@@ -54,13 +47,12 @@
 
         // 로드 완료 이벤트 리스너
         script.onload = function() {
-          console.log('Kakao SDK script loaded, initializing...');
           // 약간의 지연 후 초기화 (안전하게)
           setTimeout(window.initKakaoSdk, 100);
         };
 
         script.onerror = function() {
-          console.error('Failed to load Kakao SDK script');
+          // 스크립트 로드 실패 시 무시
         };
 
         document.head.appendChild(script);
