@@ -1,3 +1,4 @@
+// Force redeploy - updated on 2025-09-07 for NAVER Geocoding API fix
 import {setGlobalOptions} from "firebase-functions";
 import {onRequest} from "firebase-functions/https";
 import {defineSecret} from "firebase-functions/params";
@@ -10,6 +11,7 @@ setGlobalOptions({maxInstances: 10});
 // Define secrets
 const NAVER_CLIENT_ID = defineSecret("NAVER_CLIENT_ID");
 const NAVER_CLIENT_SECRET = defineSecret("NAVER_CLIENT_SECRET");
+const GOOGLE_MAPS_API_KEY = defineSecret("GOOGLE_MAPS_API_KEY");
 
 interface Coordinate {
   lat: number;
@@ -126,8 +128,23 @@ export const getDirections = onRequest(
             });
     });
 
+export const testGeocode = onRequest((request, response) => {
+    response.set("Access-Control-Allow-Origin", "*");
+    response.set("Access-Control-Allow-Methods", "GET, POST");
+    response.set("Access-Control-Allow-Headers", "Content-Type");
+
+    const address = request.query.address as string;
+    logger.info("Test function called with address:", address);
+
+    response.json({
+        message: "Test function working",
+        address: address,
+        timestamp: new Date().toISOString(),
+    });
+});
+
 export const geocodeAddress = onRequest(
-    {secrets: [NAVER_CLIENT_ID, NAVER_CLIENT_SECRET]},
+    {secrets: [GOOGLE_MAPS_API_KEY]},
     async (request, response) => {
         // CORS 허용
         response.set("Access-Control-Allow-Origin", "*");
@@ -145,37 +162,35 @@ export const geocodeAddress = onRequest(
             return;
         }
 
-        const naverClientId = await NAVER_CLIENT_ID.value();
-        const naverClientSecret = await NAVER_CLIENT_SECRET.value();
+        const googleApiKey = await GOOGLE_MAPS_API_KEY.value();
 
         const url =
-    `https://naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode?query=${encodeURIComponent(address)}`;
+            `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+                address,
+            )}&key=${googleApiKey}`;
 
-        logger.info("Calling NAVER Geocoding API:", url);
+        logger.info("Calling Google Geocoding API:", url);
 
         fetch(url, {
             method: "GET",
-            headers: {
-                "X-NCP-APIGW-API-KEY-ID": naverClientId,
-                "X-NCP-APIGW-API-KEY": naverClientSecret,
-            },
         })
             .then((res) => res.json())
             .then((data) => {
-                logger.info("NAVER Geocoding Response:", data);
+                logger.info("Google Geocoding Response:", data);
 
-                if (data.addresses && data.addresses.length > 0) {
-                    const location = data.addresses[0];
+                if (data.status === "OK" && data.results && data.results.length > 0) {
+                    const location = data.results[0].geometry.location;
                     response.json({
-                        lat: parseFloat(location.y),
-                        lng: parseFloat(location.x),
+                        lat: location.lat,
+                        lng: location.lng,
                     });
                 } else {
+                    logger.warn("No valid result found in response:", data);
                     response.status(404).json({error: "Address not found"});
                 }
             })
             .catch((error) => {
-                logger.error("Error fetching from Naver Geocoding API:", error);
+                logger.error("Error fetching from Google Geocoding API:", error);
                 response.status(500).json({error: "Failed to fetch data"});
             });
     });
