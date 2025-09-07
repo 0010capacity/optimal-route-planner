@@ -51,7 +51,7 @@ export const useMapMarkers = (mapInstance, geocodedLocations, userLocation, sear
         pathCoords.forEach(coord => bounds.extend(coord));
         mapInstance.fitBounds(bounds);
         setTimeout(() => {
-          mapInstance.setZoom(mapInstance.getZoom() - 1);
+          mapInstance.setZoom(mapInstance.getZoom() + 1);
         }, 100);
       }
     }

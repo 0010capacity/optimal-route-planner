@@ -43,6 +43,7 @@ export const getDirections = onRequest(
         }
 
         const coordsArray = request.body.coordsArray;
+        const namesArray = request.body.namesArray;
         if (!coordsArray || coordsArray.length < 2) {
             response.status(400).json({error: "At least two coordinates required"});
             return;
@@ -98,11 +99,25 @@ export const getDirections = onRequest(
                         }));
                     }
 
+                    // Extract segment times from sections
+                    let segmentTimes: number[] = [];
+                    if (route.section && route.section.length > 0) {
+                        segmentTimes = route.section.map((section: any) =>
+                            section.distance / 1000 / 30 * 3600
+                        ); // Estimate time based on distance and avg speed 30km/h
+                    } else {
+                        // Fallback: divide total time equally
+                        const numSegments = coordsArray.length - 1;
+                        const segmentTime = totalTime / numSegments;
+                        segmentTimes = Array(numSegments).fill(segmentTime);
+                    }
+
                     response.json({
                         path: fullPath,
                         totalTime,
                         totalDistance,
-                        order: coordsArray.map(
+                        segmentTimes,
+                        order: namesArray || coordsArray.map(
                             (coord: Coordinate, index: number) => `Point ${index + 1}`,
                         ),
                     });

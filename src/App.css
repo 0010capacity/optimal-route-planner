@@ -633,6 +633,83 @@
   box-shadow: var(--shadow-light);
 }
 
+.route-stops {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-small);
+  margin-bottom: var(--spacing-medium);
+}
+
+.route-stop {
+  display: flex;
+  align-items: center;
+  padding: var(--spacing-small) var(--spacing-medium);
+  background: var(--bg-primary);
+  border-radius: var(--border-radius-medium);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-light);
+  transition: var(--transition);
+}
+
+.route-stop:hover {
+  box-shadow: var(--shadow-medium);
+}
+
+.route-stop.departure {
+  border-left: 4px solid #4caf50;
+}
+
+.route-stop.arrival {
+  border-left: 4px solid #f44336;
+}
+
+.route-stop.waypoint {
+  border-left: 4px solid #2196f3;
+}
+
+.stop-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stop-name {
+  font-size: var(--font-size-medium);
+  font-weight: 600;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.stop-time {
+  font-size: var(--font-size-small);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.route-arrow {
+  margin: 0 var(--spacing-small);
+  font-size: var(--font-size-large);
+  color: var(--text-muted);
+}
+
+.route-segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-small);
+  background: var(--bg-secondary);
+  border-radius: var(--border-radius);
+  font-size: var(--font-size-small);
+  color: var(--text-secondary);
+  font-weight: 500;
+  gap: 4px;
+  margin: var(--spacing-small) 0;
+  border: 1px solid var(--border-color);
+}
+
 .route-order {
   font-size: var(--font-size-large);
   font-weight: 600;

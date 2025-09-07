@@ -102,7 +102,8 @@ function App() {
     const fetchRoute = async () => {
       if (geocodedLocations.length >= 2) {
         const coordsArray = geocodedLocations.map(loc => loc.coords);
-        const result = await getDirections(coordsArray);
+        const namesArray = geocodedLocations.map(loc => loc.name);
+        const result = await getDirections(coordsArray, namesArray);
         if (result) {
           setOptimizedRoute(result);
         }
@@ -258,7 +259,8 @@ function App() {
 
       if (waypoints.length === 0) {
         const coordsArray = validLocations.map(loc => loc.coords);
-        const result = await getDirections(coordsArray);
+        const namesArray = validLocations.map(loc => loc.name);
+        const result = await getDirections(coordsArray, namesArray);
         if (result) {
           setOptimizedRoute(result);
           const totalMinutes = Math.round(result.totalTime / 60000);
@@ -276,7 +278,8 @@ function App() {
 
       for (const perm of permutations) {
         const coordsArray = [start.coords, ...perm.map(w => w.coords), end.coords];
-        const result = await getDirections(coordsArray);
+        const namesArray = [start.name, ...perm.map(w => w.name), end.name];
+        const result = await getDirections(coordsArray, namesArray);
         if (result && result.totalTime < bestTime) {
           bestTime = result.totalTime;
           bestRoute = {

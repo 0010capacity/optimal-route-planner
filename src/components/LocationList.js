@@ -28,21 +28,15 @@ const LocationList = ({
 
   // 예상 도착 시간 계산
   const getEstimatedArrivalTimes = () => {
-    if (!optimizedRoute || !optimizedRoute.path) return [];
+    if (!optimizedRoute || !optimizedRoute.path || !optimizedRoute.segmentTimes) return [];
     
     const times = [];
     let currentTime = Date.now(); // 현재 시간부터 시작
     
     // 각 구간의 시간을 누적
-    for (let i = 0; i < optimizedRoute.path.length - 1; i++) {
-      // 간단한 추정: 평균 속도 30km/h로 계산
-      const segmentDistance = 0.1; // km (실제로는 경로 데이터에서 계산)
-      const segmentTime = (segmentDistance / 30) * 60 * 60 * 1000; // ms
-      currentTime += segmentTime;
-      
-      if (i < locations.length - 1) {
-        times.push(new Date(currentTime));
-      }
+    for (let i = 0; i < optimizedRoute.segmentTimes.length; i++) {
+      currentTime += optimizedRoute.segmentTimes[i] * 1000; // segmentTimes는 초 단위
+      times.push(new Date(currentTime));
     }
     
     return times;
@@ -110,39 +104,46 @@ const LocationList = ({
         {optimizedRoute && (
           <div className="route-summary" role="region" aria-label="최적화된 경로 정보">
             <div className="route-stops">
-              {optimizedRoute.order.map((locationIndex, stopIndex) => {
-                const location = locations[locationIndex];
+              {optimizedRoute.order.map((locationName, stopIndex) => {
                 const isFirst = stopIndex === 0;
                 const isLast = stopIndex === optimizedRoute.order.length - 1;
                 
                 return (
-                  <div key={locationIndex} className={`route-stop ${isFirst ? 'departure' : isLast ? 'arrival' : 'waypoint'}`}>
-                    <div className="stop-info">
-                      <span className="stop-name">{location?.name || `Point ${locationIndex + 1}`}</span>
-                      <span className="stop-time">
-                        {isFirst ? (
-                          <>
-                            <Icon name="departure" size={12} />
-                            출발: {new Date().toLocaleTimeString('ko-KR', {
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </>
-                        ) : (
-                          <>
-                            <Icon name="clock" size={12} />
-                            도착: {arrivalTimes[stopIndex] ? arrivalTimes[stopIndex].toLocaleTimeString('ko-KR', {
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            }) : '계산중...'}
-                          </>
-                        )}
-                      </span>
+                  <React.Fragment key={stopIndex}>
+                    <div className={`route-stop ${isFirst ? 'departure' : isLast ? 'arrival' : 'waypoint'}`}>
+                      <div className="stop-info">
+                        <span className="stop-name">{locationName}</span>
+                        <span className="stop-time">
+                          {isFirst ? (
+                            <>
+                              <Icon name="departure" size={12} />
+                              출발: {new Date().toLocaleTimeString('ko-KR', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </>
+                          ) : (
+                            <>
+                              <Icon name="clock" size={12} />
+                              도착: {arrivalTimes[stopIndex - 1] ? arrivalTimes[stopIndex - 1].toLocaleTimeString('ko-KR', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              }) : '계산중...'}
+                            </>
+                          )}
+                        </span>
+                      </div>
                     </div>
-                    {stopIndex < optimizedRoute.order.length - 1 && (
-                      <div className="route-arrow">→</div>
+                    {!isLast && optimizedRoute.segmentTimes && optimizedRoute.segmentTimes[stopIndex] && (
+                      <div className="route-segment">
+                        <Icon name="time" size={10} />
+                        {(() => {
+                          const segmentMinutes = Math.round(optimizedRoute.segmentTimes[stopIndex] / 60);
+                          return segmentMinutes > 0 ? `${segmentMinutes}분` : '<1분';
+                        })()}
+                      </div>
                     )}
-                  </div>
+                  </React.Fragment>
                 );
               })}
             </div>

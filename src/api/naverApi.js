@@ -42,7 +42,7 @@ export const geocodeAddress = async (address) => {
 };
 
 // NAVER Directions API를 사용한 경로 탐색
-export const getDirections = async (coordsArray) => {
+export const getDirections = async (coordsArray, namesArray) => {
   if (!isValidCoordinateArray(coordsArray)) {
     console.error('Directions API requires at least two valid coordinates (start and end).');
     return null;
@@ -60,7 +60,7 @@ export const getDirections = async (coordsArray) => {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ coordsArray }),
+      body: JSON.stringify({ coordsArray, namesArray }),
     });
 
     if (response.ok) {
@@ -71,29 +71,35 @@ export const getDirections = async (coordsArray) => {
         return data;
       } else {
         console.log('Invalid response from Firebase Function, using mock data');
-        return getMockDirectionsResult(coordsArray);
+        return getMockDirectionsResult(coordsArray, namesArray);
       }
     } else {
       console.log('Firebase Function response status:', response.status);
-      return getMockDirectionsResult(coordsArray);
+      return getMockDirectionsResult(coordsArray, namesArray);
     }
   } catch (error) {
     console.error('Directions error:', error);
-    return getMockDirectionsResult(coordsArray);
+    return getMockDirectionsResult(coordsArray, namesArray);
   }
 };
 
 // Mock data helper function
-const getMockDirectionsResult = (coordsArray) => {
+const getMockDirectionsResult = (coordsArray, namesArray) => {
   const mockPath = coordsArray.map((coord, index) => ({
     lat: coord.lat + (Math.random() - 0.5) * 0.01,
     lng: coord.lng + (Math.random() - 0.5) * 0.01,
   }));
 
+  const segmentTimes = [];
+  for (let i = 0; i < coordsArray.length - 1; i++) {
+    segmentTimes.push(Math.floor(Math.random() * 1800) + 300); // 5-35분
+  }
+
   return {
     path: mockPath,
-    totalTime: 1800, // 30 minutes
-    totalDistance: 15000, // 15km
-    order: coordsArray.map((coord, index) => `Point ${index + 1}`)
+    totalTime: segmentTimes.reduce((a, b) => a + b, 0),
+    totalDistance: 15000,
+    segmentTimes,
+    order: namesArray || coordsArray.map((coord, index) => `Point ${index + 1}`)
   };
 };
