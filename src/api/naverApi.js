@@ -246,6 +246,10 @@ export const getDirections = async (coordsArray, namesArray) => {
     if (response.ok) {
       const data = await response.json();
       console.log('Firebase Function directions response:', data);
+      console.log('Segment times:', data.segmentTimes);
+      console.log('Segment distances:', data.segmentDistances);
+      console.log('Total time:', data.totalTime);
+      console.log('Total distance:', data.totalDistance);
 
       if (data.path && data.totalTime && data.totalDistance) {
         return data;

@@ -218,7 +218,7 @@ const LocationList = ({
                       <div className="route-segment">
                         <Icon name="time" size={10} />
                         {(() => {
-                          const segmentMinutes = Math.round(optimizedRoute.segmentTimes[stopIndex] / 60);
+                          const segmentMinutes = Math.round(optimizedRoute.segmentTimes[stopIndex] / 60000);
                           return segmentMinutes > 0 ? `${segmentMinutes}분` : '<1분';
                         })()}
                         <span className="segment-separator">•</span>
