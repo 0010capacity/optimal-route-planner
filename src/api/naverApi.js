@@ -12,25 +12,33 @@ export const geocodeAddress = async (address) => {
     return null;
   }
 
+  console.log('Geocoding address:', address);
+
   // Firebase Functions를 통한 NAVER Geocoding API 호출
   try {
     const firebaseFunctionUrl = `https://geocodeaddress-weu5x3oaea-uc.a.run.app?address=${encodeURIComponent(address)}`;
+    console.log('Calling Firebase Function for geocoding:', firebaseFunctionUrl);
 
     const response = await fetch(firebaseFunctionUrl);
 
     if (response.ok) {
       const data = await response.json();
+      console.log('Firebase Function geocoding response:', data);
 
       if (data.lat && data.lng) {
         return { lat: data.lat, lng: data.lng };
+      } else {
+        console.log('Invalid geocoding response, using fallback');
+        return { lat: 37.5665, lng: 126.9780 }; // 서울 시청 좌표
       }
+    } else {
+      console.log('Firebase Function geocoding response status:', response.status);
+      return { lat: 37.5665, lng: 126.9780 };
     }
   } catch (error) {
-    console.error('Error with Firebase Function geocoding:', error);
+    console.error('Geocoding error:', error);
+    return { lat: 37.5665, lng: 126.9780 };
   }
-
-  // Return mock data as last resort
-  return { lat: 37.5665, lng: 126.9780 }; // Seoul coordinates
 };
 
 // NAVER Directions API를 사용한 경로 탐색
@@ -40,9 +48,12 @@ export const getDirections = async (coordsArray) => {
     return null;
   }
 
+  console.log('Getting directions for coords:', coordsArray);
+
   // Firebase Functions를 통한 NAVER Directions API 호출
   try {
-    const firebaseFunctionUrl = `https://getdirections-weu5x3oaea-uc.a.run.app`;
+    const firebaseFunctionUrl = `https://getdirections-weu5x3oaea-uc.a.run.app/`;
+    console.log('Calling Firebase Function for directions:', firebaseFunctionUrl);
 
     const response = await fetch(firebaseFunctionUrl, {
       method: 'POST',
@@ -54,16 +65,26 @@ export const getDirections = async (coordsArray) => {
 
     if (response.ok) {
       const data = await response.json();
+      console.log('Firebase Function directions response:', data);
 
       if (data.path && data.totalTime && data.totalDistance) {
         return data;
+      } else {
+        console.log('Invalid response from Firebase Function, using mock data');
+        return getMockDirectionsResult(coordsArray);
       }
+    } else {
+      console.log('Firebase Function response status:', response.status);
+      return getMockDirectionsResult(coordsArray);
     }
   } catch (error) {
-    console.error('Error with Firebase Function directions:', error);
+    console.error('Directions error:', error);
+    return getMockDirectionsResult(coordsArray);
   }
+};
 
-  // Fallback to mock data
+// Mock data helper function
+const getMockDirectionsResult = (coordsArray) => {
   const mockPath = coordsArray.map((coord, index) => ({
     lat: coord.lat + (Math.random() - 0.5) * 0.01,
     lng: coord.lng + (Math.random() - 0.5) * 0.01,

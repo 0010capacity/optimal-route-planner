@@ -243,9 +243,18 @@ function App() {
 
     // 최적화된 경로 표시
     if (optimizedRoute && optimizedRoute.path && optimizedRoute.path.length > 0) {
+      console.log('🛣️ 경로 표시 시작:', {
+        경로포인트수: optimizedRoute.path.length,
+        전체시간: optimizedRoute.totalTime,
+        총거리: optimizedRoute.totalDistance,
+        경로데이터: optimizedRoute.path.slice(0, 5) // 처음 5개 포인트만 로그
+      });
+
       const pathCoords = optimizedRoute.path.map(coord =>
         new window.naver.maps.LatLng(coord.lat, coord.lng)
       );
+
+      console.log('🗺️ 변환된 경로 좌표:', pathCoords.slice(0, 3)); // 처음 3개만 로그
 
       const polyline = new window.naver.maps.Polyline({
         path: pathCoords,
@@ -257,6 +266,7 @@ function App() {
       });
 
       polylineRef.current = polyline;
+      console.log('✅ 폴리라인 생성 완료');
 
       // 경로가 보이도록 지도 범위 조정
       if (pathCoords.length > 0) {
@@ -265,8 +275,11 @@ function App() {
         mapInstance.fitBounds(bounds);
         setTimeout(() => {
           mapInstance.setZoom(mapInstance.getZoom() - 1);
+          console.log('📍 지도 줌 레벨 조정 완료');
         }, 100);
       }
+    } else {
+      console.log('❌ 경로 데이터 없음:', optimizedRoute);
     }
 
     // 사용자 위치 마커
@@ -585,9 +598,17 @@ function App() {
       return;
     }
 
+    console.log('🚀 경로 최적화 시작:', {
+      장소수: geocodedLocations.length,
+      장소목록: geocodedLocations.map(loc => ({ 이름: loc.name, 좌표: loc.coords }))
+    });
+
     try {
       const coordsArray = geocodedLocations.map(loc => loc.coords);
+      console.log('📍 Directions API 호출 좌표:', coordsArray);
+
       const directionsResult = await getDirections(coordsArray);
+      console.log('📊 Directions API 응답:', directionsResult);
 
       if (directionsResult) {
         setOptimizedRoute(directionsResult);
@@ -616,12 +637,20 @@ function App() {
         const minutes = totalMinutes % 60;
         const timeString = hours > 0 ? `${hours}시간 ${minutes}분` : `${minutes}분`;
 
+        console.log('✅ 경로 최적화 완료:', {
+          총시간: totalMinutes,
+          시간문자열: timeString,
+          총거리: directionsResult.totalDistance,
+          경로포인트수: directionsResult.path.length
+        });
+
         alert(`경로 최적화 완료!\n\n총 거리: ${(directionsResult.totalDistance / 1000).toFixed(1)}km\n예상 시간: ${timeString}`);
       } else {
+        console.log('❌ Directions API 실패');
         alert('경로를 계산할 수 없습니다. 다시 시도해주세요.');
       }
     } catch (error) {
-      console.error('Directions API error:', error);
+      console.error('❌ Directions API 오류:', error);
       alert('경로 최적화 중 오류가 발생했습니다.');
     }
   }, [geocodedLocations]);
