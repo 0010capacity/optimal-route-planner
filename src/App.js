@@ -5,6 +5,26 @@ import getPermutations from './utils/getPermutations';
 import './App.css';
 
 function App() {
+  // ... existing code ...
+
+  // Kakao Maps SDK 초기화
+  useEffect(() => {
+    const initKakao = () => {
+      if (window.kakaoMapsReady && window.kakao && window.kakao.maps && window.kakao.maps.services) {
+        console.log('✅ Kakao Maps SDK loaded and ready in React');
+        console.log('📋 Available kakao.maps properties:', Object.keys(window.kakao.maps));
+        console.log('📋 Available kakao.maps.services properties:', Object.keys(window.kakao.maps.services));
+        console.log('📋 Places service available:', typeof window.kakao.maps.services.Places);
+      } else {
+        console.log('❌ Kakao Maps SDK not available in React, retrying...');
+        setTimeout(initKakao, 1000);
+      }
+    };
+
+    initKakao();
+  }, []);
+
+  // ... existing code ...
   const [locations, setLocations] = useState(['', '']); // 빈 문자열로 시작
   const [currentMode, setCurrentMode] = useState('list'); // 'list' or 'search'
   const [editingIndex, setEditingIndex] = useState(null); // 편집 중인 경유지 인덱스
@@ -47,8 +67,74 @@ function App() {
         : { lat: 37.5665, lng: 126.9780 };
       
       console.log('Searching with center:', validCenter, 'query:', searchQuery);
-      const results = await searchPlaces(searchQuery, validCenter);
-      setSearchResults(results);
+      
+      // 지도 중심 주변 검색을 위한 지역명 추가
+      let enhancedQuery = searchQuery;
+      if (validCenter && searchQuery.trim()) {
+        try {
+          // Google Geocoding API로 좌표를 주소로 변환
+          const apiKey = process.env.REACT_APP_GOOGLE_API_KEY;
+          const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${validCenter.lat},${validCenter.lng}&key=${apiKey}&language=ko`;
+          
+          const geocodeResponse = await fetch(geocodeUrl);
+          const geocodeData = await geocodeResponse.json();
+          
+          if (geocodeData.status === 'OK' && geocodeData.results && geocodeData.results.length > 0) {
+            const address = geocodeData.results[0].formatted_address;
+            console.log('Center address:', address);
+            
+            // 주소에서 지역명 추출 (시/군/구 수준)
+            const addressParts = address.split(' ');
+            let regionName = '';
+            
+            // 대한민국 제거 후 시/도, 시/군/구 추출
+            const cleanParts = addressParts.filter(part => part !== '대한민국');
+            if (cleanParts.length >= 2) {
+              regionName = `${cleanParts[0]} ${cleanParts[1]}`;
+            }
+            
+            if (regionName) {
+              enhancedQuery = `${searchQuery} ${regionName}`;
+              console.log('Enhanced query with region:', enhancedQuery);
+            }
+          }
+        } catch (error) {
+          console.error('Error getting center address:', error);
+          // 오류 발생 시 원래 query 사용
+        }
+      }
+      
+      const results = await searchPlaces(enhancedQuery, validCenter);
+      
+      // 지도 중심과의 거리로 정렬하여 가까운 순으로 상위 10개 표시
+      let sortedResults = results;
+      if (validCenter && results.length > 0) {
+        sortedResults = results
+          .map(result => {
+            let distance = Infinity;
+            if (result.mapx && result.mapy) {
+              const resultLat = parseFloat(result.mapy) / 10000000;
+              const resultLng = parseFloat(result.mapx) / 10000000;
+              
+              // 두 좌표 간 거리 계산 (단순 유클리드 거리)
+              distance = Math.sqrt(
+                Math.pow((resultLat - validCenter.lat) * 111000, 2) + // 위도 1도 ≈ 111km
+                Math.pow((resultLng - validCenter.lng) * 111000 * Math.cos(validCenter.lat * Math.PI / 180), 2) // 경도 보정
+              );
+            }
+            
+            return { ...result, distance };
+          })
+          .sort((a, b) => a.distance - b.distance) // 가까운 순으로 정렬
+          .slice(0, 10); // 상위 10개만 선택
+        
+        console.log(`Sorted ${results.length} results by distance, showing top 10`);
+      } else {
+        // 지도 중심이 없거나 결과가 없는 경우 원래 순서로 상위 10개
+        sortedResults = results.slice(0, 10);
+      }
+      
+      setSearchResults(sortedResults);
       setLoading(false);
     }, 500);
 

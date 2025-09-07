@@ -11,6 +11,9 @@ setGlobalOptions({maxInstances: 10});
 // Define secrets
 const NAVER_CLIENT_ID = defineSecret("NAVER_CLIENT_ID");
 const NAVER_CLIENT_SECRET = defineSecret("NAVER_CLIENT_SECRET");
+const NAVER_SEARCH_CLIENT_ID = defineSecret("NAVER_SEARCH_CLIENT_ID");
+const NAVER_SEARCH_CLIENT_SECRET = defineSecret("NAVER_SEARCH_CLIENT_SECRET");
+const KAKAO_API_KEY = defineSecret("KAKAO_API_KEY");
 
 interface Coordinate {
   lat: number;
@@ -198,5 +201,158 @@ export const geocodeAddress = onRequest(
             .catch((error) => {
                 logger.error("Error fetching from NAVER Geocoding API:", error);
                 response.status(500).json({error: "Failed to fetch data"});
+            });
+    });
+
+export const searchPlaces = onRequest(
+    {secrets: [NAVER_SEARCH_CLIENT_ID, NAVER_SEARCH_CLIENT_SECRET]},
+    async (request, response) => {
+        // CORS 허용
+        response.set("Access-Control-Allow-Origin", "*");
+        response.set("Access-Control-Allow-Methods", "GET, POST");
+        response.set("Access-Control-Allow-Headers", "Content-Type");
+
+        if (request.method === "OPTIONS") {
+            response.status(204).send("");
+            return;
+        }
+
+        const query = request.query.query as string;
+        if (!query) {
+            response.status(400).json({error: "Query parameter is required"});
+            return;
+        }
+
+        const naverClientId = await NAVER_SEARCH_CLIENT_ID.value();
+        const naverClientSecret = await NAVER_SEARCH_CLIENT_SECRET.value();
+
+        const url = `https://openapi.naver.com/v1/search/local?query=${encodeURIComponent(query)}` +
+            "&display=10&start=1&sort=random";
+
+        logger.info("Calling NAVER Search API:", url);
+
+        fetch(url, {
+            method: "GET",
+            headers: {
+                "X-Naver-Client-Id": naverClientId,
+                "X-Naver-Client-Secret": naverClientSecret,
+                "Accept": "application/json",
+            },
+        })
+            .then((res) => res.json())
+            .then((data) => {
+                logger.info("NAVER Search Response:", data);
+
+                if (data.items && data.items.length > 0) {
+                    const results = data.items.map((item: any) => {
+                        // HTML 태그 제거
+                        const cleanTitle = item.title.replace(/<[^>]*>/g, "");
+
+                        return {
+                            title: cleanTitle,
+                            category: item.category || "장소",
+                            telephone: item.telephone || "",
+                            address: item.address || "",
+                            roadAddress: item.roadAddress || item.address || "",
+                            mapx: item.mapx || "",
+                            mapy: item.mapy || "",
+                        };
+                    });
+                    response.json(results);
+                } else {
+                    response.json([]);
+                }
+            })
+            .catch((error) => {
+                logger.error("Error fetching from NAVER Search API:", error);
+                response.status(500).json({error: "Failed to fetch data"});
+            });
+    });
+
+export const searchPlacesKakao = onRequest(
+    {secrets: [KAKAO_API_KEY]},
+    async (request, response) => {
+        // CORS 허용
+        response.set("Access-Control-Allow-Origin", "*");
+        response.set("Access-Control-Allow-Methods", "GET, POST");
+        response.set("Access-Control-Allow-Headers", "Content-Type");
+
+        if (request.method === "OPTIONS") {
+            response.status(204).send("");
+            return;
+        }
+
+        const query = request.query.query as string;
+        const x = request.query.x as string;
+        const y = request.query.y as string;
+        const radius = request.query.radius as string;
+
+        if (!query) {
+            response.status(400).json({error: "Query parameter is required"});
+            return;
+        }
+
+        const kakaoApiKey = await KAKAO_API_KEY.value();
+
+        // Kakao REST API 직접 호출 (curl 명령어와 동일한 방식)
+        const baseUrl = "https://dapi.kakao.com/v2/local/search/keyword.json";
+        const params = new URLSearchParams({
+            query: query,
+            page: "1",
+            size: "15",
+            sort: "accuracy",
+        });
+
+        // 중심 좌표가 제공되면 추가
+        if (x && y) {
+            params.append("x", x);
+            params.append("y", y);
+            if (radius) {
+                params.append("radius", radius);
+            }
+        }
+
+        const url = `${baseUrl}?${params.toString()}`;
+
+        logger.info("Calling Kakao REST API:", url);
+        logger.info("Authorization header:", `KakaoAK ${kakaoApiKey.substring(0, 10)}...`);
+
+        fetch(url, {
+            method: "GET",
+            headers: {
+                "Authorization": `KakaoAK ${kakaoApiKey}`,
+                "Accept": "application/json",
+            },
+        })
+            .then((res) => {
+                logger.info("Kakao REST API Response Status:", res.status);
+                if (!res.ok) {
+                    throw new Error(`Kakao API error: ${res.status} ${res.statusText}`);
+                }
+                return res.json();
+            })
+            .then((data) => {
+                logger.info("Kakao REST API Response:", JSON.stringify(data, null, 2));
+
+                if (data.documents && data.documents.length > 0) {
+                    const results = data.documents.map((item: any) => ({
+                        title: item.place_name,
+                        category: item.category_name || "장소",
+                        telephone: item.phone || "",
+                        address: item.address_name || "",
+                        roadAddress: item.road_address_name || item.address_name || "",
+                        mapx: item.x || "",
+                        mapy: item.y || "",
+                    }));
+                    logger.info("Kakao 검색 결과 개수:", results.length);
+                    response.json(results);
+                } else {
+                    logger.info("Kakao 검색 결과 없음");
+                    response.json([]);
+                }
+            })
+            .catch((error) => {
+                logger.error("Error fetching from Kakao REST API:", error);
+                response.status(500).json({error: "Failed to fetch data", details: error.message});
             });
     });

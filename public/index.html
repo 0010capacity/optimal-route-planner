@@ -1,6 +1,15 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
+<html lang="        <!-- Naver Maps API Script -->
+    <!-- IMPORTANT: Replace YOUR_CLIENT_ID with your actual Naver Maps Client ID -->
+    <script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=3hku2yfd31"></script>
+    
+        <!-- Kakao Maps JavaScript SDK with Places Library -->
+    <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=5be0a34292474922b240a1bd76ad518c&libraries=services&autoload=false"></script> Maps API Script -->
+    <!-- IMPORTANT: Replace YOUR_CLIENT_ID with your actual Naver Maps Client ID -->
+    <script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=3hku2yfd31"></script>
+    
+        <!-- Kakao Maps JavaScript SDK with Places Library -->
+    <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=5be0a34292474922b240a1bd76ad518c&libraries=services&autoload=false"></script>ad>
     <meta charset="utf-8" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -29,6 +38,44 @@
     <!-- Naver Maps API Script -->
     <!-- IMPORTANT: Replace YOUR_CLIENT_ID with your actual Naver Maps Client ID -->
     <script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=3hku2yfd31"></script>
+    
+    <!-- Kakao JavaScript SDK (General) -->
+    <script src="https://t1.kakaocdn.net/kakao_js_sdk/v1/kakao.min.js"
+      integrity="sha384-WUSirVbD0ASvo37f3qQZuDap8wy76aJjmGyXKOYgPL/NdAs8HhgmPlk9dz2XQsNv" crossorigin="anonymous"></script>
+    
+    <!-- Kakao Maps JavaScript SDK with Places Library -->
+    <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=5be0a34292474922b240a1bd76ad518c&libraries=services&autoload=false"></script>
+    <script>
+      // Kakao Maps SDK 수동 로드
+      function loadKakaoMaps() {
+        if (window.kakao && window.kakao.maps) {
+          window.kakao.maps.load(function() {
+            console.log('✅ Kakao Maps SDK loaded successfully');
+            console.log('📋 Available kakao object:', typeof window.kakao);
+            console.log('📋 Available kakao.maps:', typeof window.kakao.maps);
+            console.log('📋 Available kakao.maps.services:', typeof window.kakao.maps.services);
+            console.log('📋 Available kakao.maps.services.Places:', typeof window.kakao.maps.services.Places);
+
+            // Places 서비스 사용 가능 여부 확인
+            if (window.kakao.maps.services && window.kakao.maps.services.Places) {
+              console.log('✅ Kakao Places service is available');
+              window.kakaoMapsReady = true;
+            } else {
+              console.log('❌ Kakao Places service is not available');
+            }
+          });
+        } else {
+          console.log('⏳ Kakao Maps SDK not ready yet, retrying...');
+          setTimeout(loadKakaoMaps, 100);
+        }
+      }
+
+      // 초기 로드 상태 설정
+      window.kakaoMapsReady = false;
+      
+      // SDK 로드 시작
+      setTimeout(loadKakaoMaps, 100);
+    </script>
     
     <!-- Google Maps API Script with Places Library -->
     <script>

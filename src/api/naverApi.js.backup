@@ -5,35 +5,30 @@ const NAVER_CLIENT_SECRET = process.env.REACT_APP_NAVER_CLIENT_SECRET || 'your_n
 const NAVER_SEARCH_CLIENT_ID = process.env.REACT_APP_NAVER_SEARCH_CLIENT_ID || 'your_naver_search_client_id_here';
 const NAVER_SEARCH_CLIENT_SECRET = process.env.REACT_APP_NAVER_SEARCH_CLIENT_SECRET || 'your_naver_search_client_secret_here';
 
-// Kakao API를 Firebase Functions를 통해 호출 (REST 방식)
+// Kakao API를 Firebase Functions를 통해 호출 (다시 복귀)
 export const searchPlaces = async (query, centerLocation = null) => {
   if (!query) {
     return [];
   }
 
   try {
-    let firebaseFunctionUrl = `https://us-central1-my-optimal-route-planner.cloudfunctions.net/searchPlacesKakao?query=${encodeURIComponent(query)}`;
+    const firebaseFunctionUrl = `https://us-central1-my-optimal-route-planner.cloudfunctions.net/searchPlacesKakao?query=${encodeURIComponent(query)}`;
 
-    // 중심 좌표가 제공되면 추가 파라미터로 전달
-    if (centerLocation && centerLocation.lat && centerLocation.lng) {
-      firebaseFunctionUrl += `&x=${centerLocation.lng}&y=${centerLocation.lat}&radius=5000`;
-    }
-
-    console.log('📍 Calling Firebase Function for Kakao REST search:', firebaseFunctionUrl);
+    console.log('� Calling Firebase Function for Kakao search:', firebaseFunctionUrl);
 
     const response = await fetch(firebaseFunctionUrl);
     console.log('📊 Firebase Function response status:', response.status);
 
     if (response.ok) {
       const data = await response.json();
-      console.log('📋 Firebase Function Kakao REST search response:', data);
+      console.log('📋 Firebase Function Kakao search response:', data);
       return data;
     } else {
-      console.error('❌ Firebase Function Kakao REST search failed:', response.statusText);
+      console.error('❌ Firebase Function Kakao search failed:', response.statusText);
       return [];
     }
   } catch (error) {
-    console.error('💥 Error with Firebase Function Kakao REST search:', error);
+    console.error('💥 Error with Firebase Function Kakao search:', error);
     return [];
   }
 };
@@ -48,9 +43,7 @@ const getDistance = (point1, point2) => {
     Math.sin(dLng/2) * Math.sin(dLng/2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   return R * c;
-};
-
-export const geocodeAddress = async (address) => {
+};export const geocodeAddress = async (address) => {
   if (!address) {
     console.log('No address provided to geocode');
     return null;
