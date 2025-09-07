@@ -288,7 +288,32 @@
   box-shadow: var(--shadow-heavy);
 }
 
-.optimize-button:disabled {
+.share-button {
+  width: 100%;
+  padding: var(--spacing-medium);
+  background: var(--success-color);
+  color: white;
+  border: none;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-size: var(--font-size-medium);
+  font-weight: 500;
+  margin-top: 6px;
+  transition: var(--transition);
+  box-shadow: var(--shadow-medium);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-small);
+}
+
+.share-button:hover:not(:disabled) {
+  background: var(--success-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-heavy);
+}
+
+.share-button:disabled {
   background: var(--text-secondary);
   cursor: not-allowed;
   box-shadow: none;
@@ -871,5 +896,155 @@
   .kinetic-toggle-button {
     padding: var(--spacing-small);
     font-size: 12px;
+  }
+}
+
+/* 모달 스타일 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: modalFadeIn 0.2s ease-out;
+}
+
+.modal-content {
+  background: var(--bg-primary);
+  border-radius: var(--border-radius-large);
+  padding: var(--spacing-xlarge);
+  max-width: 320px;
+  width: 90%;
+  box-shadow: var(--shadow-heavy);
+  border: 1px solid var(--border-color);
+  position: relative;
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+.modal-content h3 {
+  margin: 0 0 var(--spacing-medium) 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-xlarge);
+  font-weight: 600;
+  text-align: center;
+}
+
+.modal-content p {
+  margin: 0 0 var(--spacing-large) 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-medium);
+  text-align: center;
+  line-height: 1.5;
+}
+
+.modal-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-medium);
+  margin-bottom: var(--spacing-large);
+}
+
+.modal-button {
+  padding: var(--spacing-medium);
+  border: none;
+  border-radius: var(--border-radius-medium);
+  font-size: var(--font-size-medium);
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-small);
+  box-shadow: var(--shadow-medium);
+}
+
+.modal-button:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-heavy);
+}
+
+.naver-button {
+  background: #03c75a;
+  color: white;
+}
+
+.naver-button:hover {
+  background: #02b350;
+}
+
+.kakao-button {
+  background: #fee500;
+  color: #000000;
+}
+
+.kakao-button:hover {
+  background: #e6ce00;
+}
+
+.modal-close {
+  position: absolute;
+  top: var(--spacing-medium);
+  right: var(--spacing-medium);
+  background: none;
+  border: none;
+  font-size: var(--font-size-large);
+  cursor: pointer;
+  color: var(--text-secondary);
+  padding: var(--spacing-small);
+  border-radius: 50%;
+  transition: var(--transition);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* 모달 반응형 */
+@media (max-width: 768px) {
+  .modal-content {
+    padding: var(--spacing-large);
+    max-width: 280px;
+  }
+  
+  .modal-buttons {
+    gap: var(--spacing-small);
+  }
+  
+  .modal-button {
+    padding: var(--spacing-medium);
+    font-size: var(--font-size-medium);
   }
 }

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Icon } from './Icon';
+import { generateNaverMapUrl } from '../api/naverApi';
 
 const LocationList = ({
   locations,
@@ -15,7 +16,8 @@ const LocationList = ({
   draggedIndex,
   dragOverIndex,
   onDeleteLocation,
-  isOptimizing
+  isOptimizing,
+  onShareRoute
 }) => {
   // 경로 순서에 따른 장소 이름 매핑
   const getRouteDisplayNames = () => {
@@ -112,6 +114,16 @@ const LocationList = ({
         >
           <Icon name="optimize" size={16} />
           {isOptimizing ? '최적화 중...' : '경로 최적화'}
+        </button>
+        <button
+          className="share-button"
+          onClick={onShareRoute}
+          disabled={isOptimizing || locations.length < 2}
+          aria-label="지도 앱/웹으로 공유"
+          title="지도 앱/웹으로 공유"
+        >
+          <Icon name="share" size={16} />
+          지도 공유
         </button>
         {optimizedRoute && (
           <div className="route-summary" role="region" aria-label="최적화된 경로 정보">

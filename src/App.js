@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { geocodeAddress, getDirections } from './api/naverApi';
+import { geocodeAddress, getDirections, generateNaverMapUrl, generateNaverAppUrl, generateKakaoAppUrl, generateKakaoWebUrl } from './api/naverApi';
 import LocationList from './components/LocationList';
 import SearchSection from './components/SearchSection';
 import MapSection from './components/MapSection';
+import { Icon } from './components/Icon';
 import { useSearch } from './hooks/useSearch';
 import { useMap } from './hooks/useMap';
 import { useFavorites } from './hooks/useFavorites';
@@ -33,6 +34,7 @@ function App() {
   const [optimizedRoute, setOptimizedRoute] = useState(null);
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
+  const [showMapSelector, setShowMapSelector] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
 
   const {
@@ -304,6 +306,78 @@ function App() {
     }
   }, [geocodedLocations, locations]);
 
+  const handleShareRoute = useCallback(() => {
+    const validLocations = geocodedLocations.filter(loc =>
+      loc.coords && loc.coords.lat && loc.coords.lng &&
+      !isNaN(loc.coords.lat) && !isNaN(loc.coords.lng)
+    );
+
+    if (validLocations.length < 2) {
+      alert('최소 두 개의 유효한 장소가 필요합니다.');
+      return;
+    }
+
+    // 지도 선택 모달 표시
+    setShowMapSelector(true);
+  }, [geocodedLocations]);
+
+  const handleMapSelect = useCallback((mapType) => {
+    const validLocations = geocodedLocations.filter(loc =>
+      loc.coords && loc.coords.lat && loc.coords.lng &&
+      !isNaN(loc.coords.lat) && !isNaN(loc.coords.lng)
+    );
+
+    setShowMapSelector(false);
+
+    if (mapType === 'naver') {
+      // 네이버 지도 선택
+      const appUrl = generateNaverAppUrl(validLocations);
+      if (appUrl) {
+        console.log('Trying Naver App URL:', appUrl);
+        
+        if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+          window.location.href = appUrl;
+          setTimeout(() => {
+            const webUrl = generateNaverMapUrl(validLocations);
+            if (webUrl) {
+              console.log('Fallback to Naver web URL:', webUrl);
+              window.open(webUrl, '_blank');
+            }
+          }, 2000);
+        } else {
+          const webUrl = generateNaverMapUrl(validLocations);
+          if (webUrl) {
+            console.log('Desktop: Using Naver web URL:', webUrl);
+            window.open(webUrl, '_blank');
+          }
+        }
+      }
+    } else if (mapType === 'kakao') {
+      // 카카오맵 선택
+      const appUrl = generateKakaoAppUrl(validLocations);
+      if (appUrl) {
+        console.log('Trying Kakao App URL:', appUrl);
+        
+        if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+          window.location.href = appUrl;
+          setTimeout(() => {
+            const webUrl = generateKakaoWebUrl(validLocations);
+            if (webUrl) {
+              console.log('Fallback to Kakao web URL:', webUrl);
+              window.open(webUrl, '_blank');
+            }
+          }, 2000);
+        } else {
+          const webUrl = generateKakaoWebUrl(validLocations);
+          if (webUrl) {
+            console.log('Desktop: Using Kakao web URL:', webUrl);
+            window.open(webUrl, '_blank');
+          }
+        }
+      }
+    }
+  }, [geocodedLocations]);
+
   const handleBackToList = useCallback(() => {
     setCurrentMode('list');
     setEditingIndex(null);
@@ -332,6 +406,7 @@ function App() {
           dragOverIndex={dragOverIndex}
           onDeleteLocation={handleDeleteLocation}
           isOptimizing={isOptimizing}
+          onShareRoute={handleShareRoute}
         />
       ) : (
         <SearchSection
@@ -354,6 +429,38 @@ function App() {
         mapRef={mapRef}
         onGetCurrentLocation={getCurrentLocation}
       />
+
+      {/* 지도 선택 모달 */}
+      {showMapSelector && (
+        <div className="modal-overlay" onClick={() => setShowMapSelector(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h3>지도 선택</h3>
+            <p>어떤 지도로 공유하시겠습니까?</p>
+            <div className="modal-buttons">
+              <button 
+                className="modal-button naver-button"
+                onClick={() => handleMapSelect('naver')}
+              >
+                <Icon name="map" size={20} />
+                <span>네이버 지도</span>
+              </button>
+              <button 
+                className="modal-button kakao-button"
+                onClick={() => handleMapSelect('kakao')}
+              >
+                <Icon name="map" size={20} />
+                <span>카카오맵</span>
+              </button>
+            </div>
+            <button 
+              className="modal-close"
+              onClick={() => setShowMapSelector(false)}
+            >
+              <Icon name="close" size={16} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
