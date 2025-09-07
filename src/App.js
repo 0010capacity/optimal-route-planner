@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { geocodeAddress, getDirections, generateNaverMapUrl, generateNaverAppUrl, generateKakaoAppUrl, generateKakaoWebUrl } from './api/naverApi';
+import { getDirections, generateNaverMapUrl, generateNaverAppUrl, generateKakaoAppUrl, generateKakaoWebUrl } from './api/naverApi';
 import LocationList from './components/LocationList';
 import SearchSection from './components/SearchSection';
 import MapSection from './components/MapSection';
@@ -73,23 +73,8 @@ function App() {
 
         if (loc.coords && loc.coords.lat && loc.coords.lng) {
           geocoded.push({ name: loc.name, coords: loc.coords });
-        } else if (loc.address && loc.address.trim() !== '') {
-          try {
-            const coords = await geocodeAddress(loc.address);
-            if (coords) {
-              geocoded.push({ name: loc.name, coords });
-            } else {
-              // Geocoding 실패 시에도 장소를 추가 (지도에 표시하기 위해)
-              geocoded.push({ name: loc.name, coords: { lat: 37.5665, lng: 126.9780 } });
-            }
-          } catch (error) {
-            // 에러 발생 시에도 장소를 추가
-            geocoded.push({ name: loc.name, coords: { lat: 37.5665, lng: 126.9780 } });
-          }
-        } else {
-          // 주소가 없어도 이름이 있으면 기본 좌표로 추가
-          geocoded.push({ name: loc.name, coords: { lat: 37.5665, lng: 126.9780 } });
         }
+        // 좌표가 없는 장소는 건너뜀 (Kakao 검색에서 이미 좌표 제공됨)
       }
       setGeocodedLocations(geocoded);
     };
@@ -159,23 +144,7 @@ function App() {
     setEditingIndex(null);
     clearSearch();
 
-    // 좌표가 없는 경우 백그라운드에서 Geocoding 시도
-    if (!coords) {
-      const address = result.roadAddress || result.address || locationName;
-      if (address && address.trim()) {
-        geocodeAddress(address).then(geocodedCoords => {
-          if (geocodedCoords) {
-            updateLocation(editingIndex, {
-              name: locationName,
-              address: result.roadAddress || result.address || locationName,
-              coords: geocodedCoords
-            });
-          }
-        }).catch(error => {
-          // Geocoding 오류는 무시
-        });
-      }
-    }
+    // 좌표가 없으면 추가하지 않음 (Kakao 검색에서 이미 좌표 제공됨)
   }, [editingIndex, updateLocation, clearSearch]);
 
   // Use map markers hook

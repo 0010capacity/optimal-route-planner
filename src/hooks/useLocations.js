@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { geocodeAddress, getDirections } from '../api/naverApi';
+import { getDirections } from '../api/naverApi';
 import getPermutations from '../utils/getPermutations';
 
 export const useLocations = () => {
@@ -19,16 +19,8 @@ export const useLocations = () => {
       for (const loc of locations) {
         if (loc.coords && loc.coords.lat && loc.coords.lng) {
           geocoded.push({ name: loc.name, coords: loc.coords });
-        } else if (loc.address && loc.address.trim() !== '') {
-          try {
-            const coords = await geocodeAddress(loc.address);
-            if (coords) {
-              geocoded.push({ name: loc.name, coords });
-            }
-          } catch (error) {
-            console.error('Geocoding failed for:', loc.address, error);
-          }
         }
+        // 좌표가 없는 장소는 건너뜀 (Kakao 검색에서 이미 좌표 제공됨)
       }
       setGeocodedLocations(geocoded);
     };

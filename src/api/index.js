@@ -5,7 +5,7 @@
 export { searchPlaces } from './kakaoApi.js';
 
 // NAVER Maps API
-export { geocodeAddress, getDirections } from './naverApi.js';
+export { getDirections } from './naverApi.js';
 
 // 유틸리티 함수들
 export { getDistance, isValidCoordinate, isValidCoordinateArray } from './utils.js';
@@ -16,7 +16,6 @@ export default {
   searchPlaces,
 
   // NAVER API
-  geocodeAddress,
   getDirections,
 
   // Utils

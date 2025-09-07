@@ -30,7 +30,10 @@ interface Route {
 }
 
 export const getDirections = onRequest(
-    {secrets: [NAVER_CLIENT_ID, NAVER_CLIENT_SECRET]},
+    {
+        secrets: [NAVER_CLIENT_ID, NAVER_CLIENT_SECRET],
+        region: "asia-northeast3",
+    },
     async (request, response) => {
         // CORS 허용
         response.set("Access-Control-Allow-Origin", "*");
@@ -102,18 +105,71 @@ export const getDirections = onRequest(
                     // Extract segment times and distances from sections
                     let segmentTimes: number[] = [];
                     let segmentDistances: number[] = [];
-                    if (route.section && route.section.length > 0) {
-                        segmentTimes = route.section.map((section: any) =>
-                            section.distance / 1000 / 30 * 3600
-                        ); // Estimate time based on distance and avg speed 30km/h
-                        segmentDistances = route.section.map((section: any) =>
-                            section.distance
-                        ); // Distance in meters
+
+                    // Group sections by waypoint segments
+                    const numWaypoints = coordsArray.length;
+                    if (route.section && route.section.length > 0 && numWaypoints > 1) {
+                        const numSegments = numWaypoints - 1;
+
+                        // Initialize arrays for each waypoint segment
+                        const waypointSegmentTimes = new Array(numSegments).fill(0);
+                        const waypointSegmentDistances = new Array(numSegments).fill(0);
+
+                        // Group sections by waypoint index
+                        route.section.forEach((section: any) => {
+                            // NAVER API sections have waypoint index (pointIndex)
+                            const waypointIndex = section.pointIndex || 0;
+
+                            // Ensure waypoint index is within bounds
+                            if (waypointIndex >= 0 && waypointIndex < numSegments) {
+                                waypointSegmentTimes[waypointIndex] += section.duration || 0;
+                                waypointSegmentDistances[waypointIndex] += section.distance || 0;
+                            }
+                        });
+
+                        // Handle case where some sections don't have proper waypoint mapping
+                        const totalMappedTime = waypointSegmentTimes.reduce((sum, time) => sum + time, 0);
+
+                        // If mapping is incomplete, distribute remaining proportionally
+                        if (totalMappedTime < totalTime * 0.9) { // If less than 90% mapped
+                            logger.warn("Incomplete waypoint mapping, falling back to proportional distribution");
+
+                            // Calculate total section data for proportional distribution
+                            const totalSectionTime = route.section.reduce((sum: number, section: any) =>
+                                sum + (section.duration || 0), 0);
+                            const totalSectionDistance = route.section.reduce((sum: number, section: any) =>
+                                sum + (section.distance || 0), 0);
+
+                            // If we have section data, distribute proportionally
+                            if (totalSectionTime > 0 && totalSectionDistance > 0) {
+                                for (let i = 0; i < numSegments; i++) {
+                                    const proportion = 1 / numSegments; // Equal distribution as fallback
+                                    waypointSegmentTimes[i] = totalTime * proportion;
+                                    waypointSegmentDistances[i] = totalDistance * proportion;
+                                }
+                            } else {
+                                // Last resort: equal distribution
+                                for (let i = 0; i < numSegments; i++) {
+                                    waypointSegmentTimes[i] = totalTime / numSegments;
+                                    waypointSegmentDistances[i] = totalDistance / numSegments;
+                                }
+                            }
+                        }
+
+                        segmentTimes = waypointSegmentTimes;
+                        segmentDistances = waypointSegmentDistances;
+
+                        logger.info(`Grouped ${route.section.length} sections into ${numSegments} waypoint segments`);
+                        logger.info(`Segment times: ${segmentTimes}`);
+                        logger.info(`Segment distances: ${segmentDistances}`);
                     } else {
-                        // If no section data, return error
-                        logger.warn("No section data found in route response");
-                        response.status(404).json({error: "No route section data found"});
-                        return;
+                        // Fallback: equal distribution
+                        const numSegments = numWaypoints - 1;
+                        for (let i = 0; i < numSegments; i++) {
+                            segmentTimes.push(totalTime / numSegments);
+                            segmentDistances.push(totalDistance / numSegments);
+                        }
+                        logger.warn("No section data or insufficient waypoints, using equal distribution");
                     }
 
                     response.json({
@@ -133,80 +189,6 @@ export const getDirections = onRequest(
             })
             .catch((error) => {
                 logger.error("Error fetching from NAVER Directions API:", error);
-                response.status(500).json({error: "Failed to fetch data"});
-            });
-    });
-
-export const testGeocode = onRequest((request, response) => {
-    response.set("Access-Control-Allow-Origin", "*");
-    response.set("Access-Control-Allow-Methods", "GET, POST");
-    response.set("Access-Control-Allow-Headers", "Content-Type");
-
-    const address = request.query.address as string;
-    logger.info("Test function called with address:", address);
-
-    response.json({
-        message: "Test function working",
-        address: address,
-        timestamp: new Date().toISOString(),
-    });
-});
-
-export const geocodeAddress = onRequest(
-    {secrets: [NAVER_CLIENT_ID, NAVER_CLIENT_SECRET]},
-    async (request, response) => {
-        // CORS 허용
-        response.set("Access-Control-Allow-Origin", "*");
-        response.set("Access-Control-Allow-Methods", "GET, POST");
-        response.set("Access-Control-Allow-Headers", "Content-Type");
-
-        if (request.method === "OPTIONS") {
-            response.status(204).send("");
-            return;
-        }
-
-        const address = request.query.address as string;
-        if (!address) {
-            response.status(400).json({error: "Address parameter is required"});
-            return;
-        }
-
-        const naverClientId = await NAVER_CLIENT_ID.value();
-        const naverClientSecret = await NAVER_CLIENT_SECRET.value();
-
-        const url = `https://maps.apigw.ntruss.com/map-geocode/v2/geocode?query=${encodeURIComponent(address)}`;
-
-        logger.info("Calling NAVER Geocoding API:", url);
-        // Log the full URL for Postman testing
-        logger.info("Full NAVER Geocoding API URL for Postman:", url);
-        logger.info("Headers for Postman: X-NCP-APIGW-API-KEY-ID =", naverClientId,
-            ", X-NCP-APIGW-API-KEY =", naverClientSecret);
-
-        fetch(url, {
-            method: "GET",
-            headers: {
-                "x-ncp-apigw-api-key-id": naverClientId,
-                "x-ncp-apigw-api-key": naverClientSecret,
-                "Accept": "application/json",
-            },
-        })
-            .then((res) => res.json())
-            .then((data) => {
-                logger.info("NAVER Geocoding Response:", data);
-
-                if (data.status === "OK" && data.addresses && data.addresses.length > 0) {
-                    const location = data.addresses[0];
-                    response.json({
-                        lat: parseFloat(location.y),
-                        lng: parseFloat(location.x),
-                    });
-                } else {
-                    logger.warn("No valid result found in response:", data);
-                    response.status(404).json({error: "Address not found"});
-                }
-            })
-            .catch((error) => {
-                logger.error("Error fetching from NAVER Geocoding API:", error);
                 response.status(500).json({error: "Failed to fetch data"});
             });
     });
