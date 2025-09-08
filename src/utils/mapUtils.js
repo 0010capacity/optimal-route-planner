@@ -9,7 +9,7 @@ export const getMarkerColor = (index, total) => {
 export const getMarkerSymbol = (index, total) => {
   if (index === 0) return '▶';
   if (index === total - 1) return '■';
-  return '●';
+  return (index).toString(); // 경유지: 순서 번호 (1부터 시작)
 };
 
 // 마커 아이콘 생성
@@ -18,14 +18,20 @@ export const createMarkerIcon = (color, symbol) => ({
     <div style="
       background: ${color};
       border-radius: 50%;
-      width: 16px;
-      height: 16px;
+      width: 20px;
+      height: 20px;
       border: 2px solid white;
       box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-    "></div>
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 10px;
+      font-weight: bold;
+    ">${symbol}</div>
   `,
-  size: new window.naver.maps.Size(16, 16),
-  anchor: new window.naver.maps.Point(8, 8)
+  size: new window.naver.maps.Size(20, 20),
+  anchor: new window.naver.maps.Point(10, 10)
 });
 
 // 사용자 위치 아이콘 생성

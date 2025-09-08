@@ -27,7 +27,8 @@ const SortableLocationItem = ({
   isLast, 
   onLocationClick, 
   onDeleteLocation, 
-  isOptimizing
+  isOptimizing,
+  totalLocations
 }) => {
   const {
     attributes,
@@ -62,7 +63,11 @@ const SortableLocationItem = ({
             touchAction: 'none' // 스크롤 완전 차단
           }}
           title="드래그하여 순서 변경"
-        ></div>
+        >
+          {!isFirst && !isLast && (
+            <span className="waypoint-number">{index}</span>
+          )}
+        </div>
         <div className="location-line"></div>
       </div>
       <div className="location-content">
@@ -163,6 +168,7 @@ const LocationList = ({
                   onLocationClick={onLocationClick}
                   onDeleteLocation={locations.length > 2 ? onDeleteLocation : null}
                   isOptimizing={isOptimizing}
+                  totalLocations={locations.length}
                 />
               ))}
             </ul>
