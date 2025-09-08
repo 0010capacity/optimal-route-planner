@@ -7,6 +7,71 @@ import getPermutations from './getPermutations.js';
 import { performanceMonitor } from './performanceMonitor.js';
 
 /**
+ * 좌표 기반 유클리드 거리 계산 (단위: km)
+ * @param {Object} coord1 - {lat, lng}
+ * @param {Object} coord2 - {lat, lng}
+ * @returns {number} 거리 (km)
+ */
+export const calculateEuclideanDistance = (coord1, coord2) => {
+  const R = 6371; // 지구 반지름 (km)
+  const dLat = (coord2.lat - coord1.lat) * Math.PI / 180;
+  const dLon = (coord2.lng - coord1.lng) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(coord1.lat * Math.PI / 180) * Math.cos(coord2.lat * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+};
+
+/**
+ * 좌표 기반 거리 필터링 (API 호출 전 사전 제외)
+ * @param {Array} locations - 위치 배열
+ * @param {number} thresholdMultiplier - 임계값 배수 (기본: 1.5)
+ * @returns {Object} 필터링 결과 {validPairs, threshold, distances}
+ */
+export const filterByEuclideanDistance = (locations, thresholdMultiplier = 1.5) => {
+  const n = locations.length;
+  const distances = Array(n).fill().map(() => Array(n).fill(0));
+  
+  // 모든 쌍의 유클리드 거리 계산
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      if (i === j) {
+        distances[i][j] = 0;
+      } else {
+        distances[i][j] = calculateEuclideanDistance(locations[i].coords, locations[j].coords);
+      }
+    }
+  }
+  
+  // 평균 거리 계산 (대각선 제외)
+  let totalDist = 0;
+  let count = 0;
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      totalDist += distances[i][j];
+      count++;
+    }
+  }
+  const avgDist = totalDist / count;
+  const threshold = avgDist * thresholdMultiplier;
+  
+  // 유효한 쌍 필터링 (임계값 이하인 쌍만 유지)
+  const validPairs = new Set();
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      if (i !== j && distances[i][j] <= threshold) {
+        validPairs.add(`${i}-${j}`);
+      }
+    }
+  }
+  
+  console.log(`Euclidean filtering: ${validPairs.size}/${n*(n-1)} pairs valid (threshold: ${threshold.toFixed(2)}km, avg: ${avgDist.toFixed(2)}km)`);
+  
+  return { distances, validPairs, threshold, avgDist };
+};
+
+/**
  * 거리 행렬을 기반으로 한 2-opt 최적화 알고리즘
  * API 호출 횟수를 O(n²)으로 줄임
  */
@@ -238,21 +303,41 @@ export class HybridOptimizer {
   }
 
   /**
-   * 완전탐색 최적화 (기존 방식과 동일하지만 개선)
+   * 완전탐색 최적화 (유클리드 거리 기반 필터링 적용)
    */
   static async optimizeBruteForce(locations, getDirections) {
     const start = locations[0];
     const end = locations[locations.length - 1];
     const waypoints = locations.slice(1, -1);
 
-    const permutations = getPermutations(waypoints);
+    // 유클리드 거리 기반 필터링 적용
+    console.log('Applying Euclidean distance filtering for brute force...');
+    const { validPairs, threshold, avgDist } = filterByEuclideanDistance(locations, 1.5);
+
+    // 필터링된 순열 생성 (유효한 쌍만 포함)
+    const filteredPermutations = getPermutations(waypoints).filter(perm => {
+      // 순열 내 모든 연속 쌍이 유효한지 확인
+      const currentLocations = [start, ...perm, end];
+      for (let i = 0; i < currentLocations.length - 1; i++) {
+        const fromIndex = locations.indexOf(currentLocations[i]);
+        const toIndex = locations.indexOf(currentLocations[i + 1]);
+        const pairKey = `${Math.min(fromIndex, toIndex)}-${Math.max(fromIndex, toIndex)}`;
+        if (!validPairs.has(pairKey)) {
+          return false; // 유효하지 않은 쌍이 있으면 제외
+        }
+      }
+      return true;
+    });
+
+    console.log(`Filtered ${getPermutations(waypoints).length} -> ${filteredPermutations.length} permutations (threshold: ${threshold.toFixed(2)}km, avg: ${avgDist.toFixed(2)}km)`);
+
     let bestRoute = null;
     let bestTime = Infinity;
     let apiCallCount = 0;
 
-    console.log(`Testing ${permutations.length} permutations...`);
+    console.log(`Testing ${filteredPermutations.length} filtered permutations...`);
 
-    for (const perm of permutations) {
+    for (const perm of filteredPermutations) {
       const currentLocations = [start, ...perm, end];
       const coordsArray = currentLocations.map(loc => loc.coords);
       const namesArray = currentLocations.map(loc => loc.name);
@@ -281,18 +366,43 @@ export class HybridOptimizer {
   }
 
   /**
-   * TSP DP 최적화 (정확한 최적해 보장)
+   * TSP DP 최적화 (유클리드 거리 기반 필터링 적용)
    */
   static async optimizeTSPDP(locations, getDirections) {
     const n = locations.length;
 
+    // 유클리드 거리 기반 필터링 적용
+    console.log('Applying Euclidean distance filtering for TSP DP...');
+    const { validPairs, threshold, avgDist } = filterByEuclideanDistance(locations, 1.5);
+
+    // 필터링된 위치들로 새로운 위치 배열 생성
+    const filteredIndices = new Set();
+    filteredIndices.add(0); // 시작점
+    filteredIndices.add(n - 1); // 끝점
+
+    // 유효한 쌍에 포함된 중간 지점들 추가
+    for (const pair of validPairs) {
+      const [i, j] = pair.split('-').map(Number);
+      if (i > 0 && i < n - 1) filteredIndices.add(i);
+      if (j > 0 && j < n - 1) filteredIndices.add(j);
+    }
+
+    const filteredLocations = Array.from(filteredIndices).sort((a, b) => a - b).map(idx => locations[idx]);
+    const filteredN = filteredLocations.length;
+
+    console.log(`TSP DP filtering: ${n} -> ${filteredN} locations (threshold: ${threshold.toFixed(2)}km, avg: ${avgDist.toFixed(2)}km)`);
+
+    if (filteredN < n) {
+      console.log('Using filtered locations for TSP DP');
+    }
+
     // 1단계: 거리 행렬 구축 (O(n²) API 호출)
     console.log('Building distance matrix for TSP DP...');
-    const distanceMatrix = await HybridOptimizer.buildDistanceMatrix(locations, getDirections);
-    const apiCallsForMatrix = n * (n - 1) / 2; // 대칭이므로 절반만
+    const distanceMatrix = await HybridOptimizer.buildDistanceMatrix(filteredLocations, getDirections);
+    const apiCallsForMatrix = filteredN * (filteredN - 1) / 2; // 대칭이므로 절반만
 
     // 2단계: TSP DP 알고리즘 적용
-    const tspOptimizer = new TSPOptimizer(distanceMatrix, locations);
+    const tspOptimizer = new TSPOptimizer(distanceMatrix, filteredLocations);
     const tspResult = tspOptimizer.optimize();
 
     if (!tspResult) {
@@ -301,7 +411,7 @@ export class HybridOptimizer {
     }
 
     // 3단계: 최적 경로로 실제 데이터 가져오기 (1번의 API 호출)
-    const finalLocations = tspResult.route.map(index => locations[index]);
+    const finalLocations = tspResult.route.map(index => filteredLocations[index]);
     const coordsArray = finalLocations.map(loc => loc.coords);
     const namesArray = finalLocations.map(loc => loc.name);
 
@@ -317,29 +427,44 @@ export class HybridOptimizer {
   }
 
   /**
-   * 2-opt 최적화 (API 호출 최소화)
+   * 2-opt 최적화 (유클리드 거리 기반 필터링 적용)
    */
   static async optimize2Opt(locations, getDirections) {
-    // 거리 기반 필터링 적용 (2-opt 전에 비효율적인 경유지 제외)
-    let filteredLocations = locations;
-    const waypoints = locations.slice(1, -1);
-    
-    if (waypoints.length > 3) { // 3개 이상 경유지일 때만 필터링
-      console.log('Applying distance-based filtering for 2-opt...');
-      const distanceMatrix = await HybridOptimizer.buildDistanceMatrix(locations, getDirections);
-      filteredLocations = HybridOptimizer.filterByDistance(locations, distanceMatrix, 2.0);
+    const n = locations.length;
+
+    // 유클리드 거리 기반 필터링 적용
+    console.log('Applying Euclidean distance filtering for 2-opt...');
+    const { validPairs, threshold, avgDist } = filterByEuclideanDistance(locations, 1.5);
+
+    // 필터링된 위치들로 새로운 위치 배열 생성
+    const filteredIndices = new Set();
+    filteredIndices.add(0); // 시작점
+    filteredIndices.add(n - 1); // 끝점
+
+    // 유효한 쌍에 포함된 중간 지점들 추가
+    for (const pair of validPairs) {
+      const [i, j] = pair.split('-').map(Number);
+      if (i > 0 && i < n - 1) filteredIndices.add(i);
+      if (j > 0 && j < n - 1) filteredIndices.add(j);
     }
 
-    const n = filteredLocations.length;
-    
+    const filteredLocations = Array.from(filteredIndices).sort((a, b) => a - b).map(idx => locations[idx]);
+    const filteredN = filteredLocations.length;
+
+    console.log(`2-opt filtering: ${n} -> ${filteredN} locations (threshold: ${threshold.toFixed(2)}km, avg: ${avgDist.toFixed(2)}km)`);
+
+    if (filteredN < n) {
+      console.log('Using filtered locations for 2-opt');
+    }
+
     // 1단계: 필터링된 위치들에 대한 거리 행렬 구축
     console.log('Building distance matrix...');
     const distanceMatrix = await HybridOptimizer.buildDistanceMatrix(filteredLocations, getDirections);
-    const apiCallsForMatrix = n * (n - 1) / 2; // 대칭이므로 절반만
+    const apiCallsForMatrix = filteredN * (filteredN - 1) / 2; // 대칭이므로 절반만
 
     // 2단계: Nearest Neighbor로 초기 경로 생성
     const nnOptimizer = new NearestNeighborOptimizer(distanceMatrix, filteredLocations);
-    const initialRoute = nnOptimizer.generateInitialRoute(0, n - 1);
+    const initialRoute = nnOptimizer.generateInitialRoute(0, filteredN - 1);
 
     // 3단계: 2-opt로 개선
     const twoOptOptimizer = new TwoOptOptimizer(distanceMatrix, filteredLocations);
@@ -362,18 +487,40 @@ export class HybridOptimizer {
   }
 
   /**
-   * 휴리스틱 최적화 (대용량 데이터용)
+   * 휴리스틱 최적화 (유클리드 거리 기반 필터링 적용)
    */
   static async optimizeHeuristic(locations, getDirections) {
+    const n = locations.length;
+
+    // 유클리드 거리 기반 필터링 적용
+    console.log('Applying Euclidean distance filtering for heuristic...');
+    const { validPairs, threshold, avgDist } = filterByEuclideanDistance(locations, 1.5);
+
+    // 필터링된 위치들로 새로운 위치 배열 생성
+    const filteredIndices = new Set();
+    filteredIndices.add(0); // 시작점
+    filteredIndices.add(n - 1); // 끝점
+
+    // 유효한 쌍에 포함된 중간 지점들 추가
+    for (const pair of validPairs) {
+      const [i, j] = pair.split('-').map(Number);
+      if (i > 0 && i < n - 1) filteredIndices.add(i);
+      if (j > 0 && j < n - 1) filteredIndices.add(j);
+    }
+
+    const filteredLocations = Array.from(filteredIndices).sort((a, b) => a - b).map(idx => locations[idx]);
+    const filteredN = filteredLocations.length;
+
+    console.log(`Heuristic filtering: ${n} -> ${filteredN} locations (threshold: ${threshold.toFixed(2)}km, avg: ${avgDist.toFixed(2)}km)`);
+
     // 대용량의 경우 샘플링과 클러스터링 적용
     console.log('Using heuristic approach for large dataset...');
     
     // 간단한 구현: Nearest Neighbor만 사용
-    const n = locations.length;
-    const sampleSize = Math.min(n, 15); // 최대 15개 지점만 샘플링
+    const sampleSize = Math.min(filteredN, 15); // 최대 15개 지점만 샘플링
     
     // 거리 기반 샘플링 (시작/끝점 포함)
-    const sampledLocations = HybridOptimizer.sampleLocations(locations, sampleSize);
+    const sampledLocations = HybridOptimizer.sampleLocations(filteredLocations, sampleSize);
     
     // 샘플에 대해 2-opt 적용
     return await HybridOptimizer.optimize2Opt(sampledLocations, getDirections);
