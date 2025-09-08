@@ -175,9 +175,15 @@ export class HybridOptimizer {
         result = await HybridOptimizer.optimizeBruteForce(locations, getDirections);
         method = 'brute_force';
         apiCalls = result?.apiCalls || 0;
-      } else if (waypointCount <= 12) {
+      } else if (waypointCount <= 8) {
+        // TSP DP 최적화 (정확한 최적해 보장)
+        console.log('Using TSP DP optimization (7-8 waypoints)');
+        result = await HybridOptimizer.optimizeTSPDP(locations, getDirections);
+        method = 'tsp_dp';
+        apiCalls = result?.apiCalls || 0;
+      } else if (waypointCount <= 15) {
         // 2-opt 최적화
-        console.log('Using 2-opt optimization (7-12 waypoints)');
+        console.log('Using 2-opt optimization (9-15 waypoints)');
         result = await HybridOptimizer.optimize2Opt(locations, getDirections);
         method = '2-opt';
         apiCalls = result?.apiCalls || 0;
@@ -275,26 +281,72 @@ export class HybridOptimizer {
   }
 
   /**
-   * 2-opt 최적화 (API 호출 최소화)
+   * TSP DP 최적화 (정확한 최적해 보장)
    */
-  static async optimize2Opt(locations, getDirections) {
+  static async optimizeTSPDP(locations, getDirections) {
     const n = locations.length;
-    
+
     // 1단계: 거리 행렬 구축 (O(n²) API 호출)
-    console.log('Building distance matrix...');
+    console.log('Building distance matrix for TSP DP...');
     const distanceMatrix = await HybridOptimizer.buildDistanceMatrix(locations, getDirections);
     const apiCallsForMatrix = n * (n - 1) / 2; // 대칭이므로 절반만
 
+    // 2단계: TSP DP 알고리즘 적용
+    const tspOptimizer = new TSPOptimizer(distanceMatrix, locations);
+    const tspResult = tspOptimizer.optimize();
+
+    if (!tspResult) {
+      console.error('TSP DP optimization failed');
+      return null;
+    }
+
+    // 3단계: 최적 경로로 실제 데이터 가져오기 (1번의 API 호출)
+    const finalLocations = tspResult.route.map(index => locations[index]);
+    const coordsArray = finalLocations.map(loc => loc.coords);
+    const namesArray = finalLocations.map(loc => loc.name);
+
+    const finalResult = await getDirections(coordsArray, namesArray);
+
+    return {
+      optimizedLocations: finalLocations,
+      routeData: finalResult,
+      optimizationMethod: 'tsp_dp',
+      apiCalls: apiCallsForMatrix + 1,
+      iterations: 0 // DP는 반복이 없음
+    };
+  }
+
+  /**
+   * 2-opt 최적화 (API 호출 최소화)
+   */
+  static async optimize2Opt(locations, getDirections) {
+    // 거리 기반 필터링 적용 (2-opt 전에 비효율적인 경유지 제외)
+    let filteredLocations = locations;
+    const waypoints = locations.slice(1, -1);
+    
+    if (waypoints.length > 3) { // 3개 이상 경유지일 때만 필터링
+      console.log('Applying distance-based filtering for 2-opt...');
+      const distanceMatrix = await HybridOptimizer.buildDistanceMatrix(locations, getDirections);
+      filteredLocations = HybridOptimizer.filterByDistance(locations, distanceMatrix, 2.0);
+    }
+
+    const n = filteredLocations.length;
+    
+    // 1단계: 필터링된 위치들에 대한 거리 행렬 구축
+    console.log('Building distance matrix...');
+    const distanceMatrix = await HybridOptimizer.buildDistanceMatrix(filteredLocations, getDirections);
+    const apiCallsForMatrix = n * (n - 1) / 2; // 대칭이므로 절반만
+
     // 2단계: Nearest Neighbor로 초기 경로 생성
-    const nnOptimizer = new NearestNeighborOptimizer(distanceMatrix, locations);
+    const nnOptimizer = new NearestNeighborOptimizer(distanceMatrix, filteredLocations);
     const initialRoute = nnOptimizer.generateInitialRoute(0, n - 1);
 
     // 3단계: 2-opt로 개선
-    const twoOptOptimizer = new TwoOptOptimizer(distanceMatrix, locations);
+    const twoOptOptimizer = new TwoOptOptimizer(distanceMatrix, filteredLocations);
     const optimized = twoOptOptimizer.optimize(initialRoute);
 
     // 4단계: 최적 경로로 실제 데이터 가져오기 (1번의 API 호출)
-    const finalLocations = optimized.route.map(index => locations[index]);
+    const finalLocations = optimized.route.map(index => filteredLocations[index]);
     const coordsArray = finalLocations.map(loc => loc.coords);
     const namesArray = finalLocations.map(loc => loc.name);
     
@@ -385,5 +437,120 @@ export class HybridOptimizer {
 
     sampled.push(end); // 끝점 포함
     return sampled;
+  }
+}
+
+/**
+ * TSP DP(Dynamic Programming) 최적화 알고리즘
+ * 정확한 최적해를 보장하지만 n이 클 경우 계산 시간이 오래 걸림
+ */
+export class TSPOptimizer {
+  constructor(distanceMatrix, locations) {
+    this.distanceMatrix = distanceMatrix;
+    this.locations = locations;
+    this.n = locations.length;
+  }
+
+  /**
+   * TSP DP 알고리즘으로 최적 경로 계산
+   * 시작점(0)과 끝점(n-1)을 고려한 TSP
+   * @returns {Object} 최적화된 경로와 총 거리
+   */
+  optimize() {
+    const startTime = performance.now();
+    const n = this.n;
+    const INF = Infinity;
+
+    console.log(`TSP DP 시작: ${n}개 지점 최적화`);
+
+    // DP 테이블: dp[mask][pos] = mask 집합을 방문하고 현재 pos에 있을 때의 최소 비용
+    const dp = Array(1 << n).fill().map(() => Array(n).fill(INF));
+    const prev = Array(1 << n).fill().map(() => Array(n).fill(-1)); // 경로 복원을 위한 이전 상태
+
+    // 시작점 초기화
+    dp[1 << 0][0] = 0;
+
+    // DP 테이블 채우기
+    let operations = 0;
+    for (let mask = 0; mask < (1 << n); mask++) {
+      for (let pos = 0; pos < n; pos++) {
+        if (dp[mask][pos] === INF) continue;
+
+        // 다음 방문할 도시들
+        for (let next = 0; next < n; next++) {
+          if ((mask & (1 << next)) !== 0) continue; // 이미 방문한 도시
+
+          const newMask = mask | (1 << next);
+          const cost = this.distanceMatrix[pos][next];
+
+          if (cost < INF && dp[mask][pos] + cost < dp[newMask][next]) {
+            dp[newMask][next] = dp[mask][pos] + cost;
+            prev[newMask][next] = pos;
+          }
+          operations++;
+        }
+      }
+    }
+
+    // 최적 경로 찾기 (끝점이 n-1이어야 함)
+    const fullMask = (1 << n) - 1;
+    const endPos = n - 1;
+
+    if (dp[fullMask][endPos] === INF) {
+      console.error('TSP DP: No valid path found to end point');
+      return null;
+    }
+
+    const minCost = dp[fullMask][endPos];
+
+    // 경로 복원
+    const route = this.reconstructPath(prev, fullMask, endPos);
+
+    const endTime = performance.now();
+    const duration = endTime - startTime;
+
+    console.log(`TSP DP 완료: ${duration.toFixed(2)}ms, ${operations} 연산, 최적 비용: ${minCost}`);
+
+    return {
+      route: route,
+      totalDistance: minCost,
+      method: 'tsp_dp',
+      operations: operations,
+      duration: duration
+    };
+  }
+
+  /**
+   * DP 테이블에서 최적 경로 복원
+   */
+  reconstructPath(prev, mask, pos) {
+    const path = [];
+    let currentMask = mask;
+    let currentPos = pos;
+
+    while (currentPos !== -1) {
+      path.unshift(currentPos);
+      const nextPos = prev[currentMask][currentPos];
+
+      if (nextPos === -1) break;
+
+      currentMask ^= (1 << currentPos); // 현재 위치 비트 제거
+      currentPos = nextPos;
+    }
+
+    return path;
+  }
+
+  /**
+   * 경로의 총 거리 계산 (디버깅용)
+   */
+  calculateRouteDistance(route) {
+    let totalDistance = 0;
+    for (let i = 0; i < route.length - 1; i++) {
+      const from = route[i];
+      const to = route[i + 1];
+      totalDistance += this.distanceMatrix[from][to] || Infinity;
+    }
+    return totalDistance;
   }
 }
