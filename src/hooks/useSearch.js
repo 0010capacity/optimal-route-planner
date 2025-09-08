@@ -47,18 +47,43 @@ export const useSearch = (currentMode, mapCenter) => {
         const searchResponse = await searchPlaces(searchQuery, { location: validCenter });
         const results = searchResponse.results || [];
 
-        // 거리순 정렬 (여러 페이지 결과 모두 사용)
-        const sortedResults = results
-          .map(result => ({
-            ...result,
-            distance: calculateDistance(validCenter, {
-              lat: parseFloat(result.y),
-              lng: parseFloat(result.x)
-            })
-          }))
-          .sort((a, b) => a.distance - b.distance);
+        // 중복 제거 (title + address 기준)
+        const uniqueResults = results.filter((result, index, self) => {
+          const key = `${result.title}_${result.address}`;
+          return self.findIndex(r => `${r.title}_${r.address}` === key) === index;
+        });
 
-        setSearchResults(sortedResults);
+        console.log(`🔄 중복 제거: ${results.length} → ${uniqueResults.length}`);
+
+        // 검색 의도에 따른 정렬 적용
+        const isSpecificPlaceQuery = (query) => {
+          const placePatterns = [
+            /역$/, /터미널$/, /공항$/, /대학교$/, /병원$/, /센터$/, /아파트$/, /빌딩$/, /호텔$/, /모텔$/, /마트$/, /백화점$/, /쇼핑몰$/,
+            /로$/, /길$/, /동$/, /읍$/, /면$/, /리$/, /구$/, /시$/, /도$/
+          ];
+          return placePatterns.some(pattern => pattern.test(query.trim()));
+        };
+
+        let finalResults;
+        if (isSpecificPlaceQuery(searchQuery)) {
+          // 특정 장소 검색: API에서 재정렬된 결과 그대로 사용
+          console.log('🎯 특정 장소 검색: 재정렬된 결과 사용');
+          finalResults = uniqueResults;
+        } else {
+          // 카테고리 검색: 거리순 정렬 적용
+          console.log('📍 카테고리 검색: 거리순 정렬 적용');
+          finalResults = uniqueResults
+            .map(result => ({
+              ...result,
+              distance: calculateDistance(validCenter, {
+                lat: parseFloat(result.y),
+                lng: parseFloat(result.x)
+              })
+            }))
+            .sort((a, b) => a.distance - b.distance);
+        }
+
+        setSearchResults(finalResults);
       } catch (error) {
         console.error('Search error:', error);
         setSearchResults([]);

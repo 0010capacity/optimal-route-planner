@@ -10,6 +10,7 @@ import { useFavorites } from './hooks/useFavorites';
 import { useMapMarkers } from './hooks/useMapMarkers';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { HybridOptimizer } from './utils/routeOptimizer';
+import packageJson from '../package.json';
 import './App.css';
 
 function App() {
@@ -438,7 +439,7 @@ function App() {
               <span>© 2025 최적 경로 플래너. MIT License.</span>
             </div>
             <div className="footer-version">
-              <span>Version 0.2.0</span>
+              <span>Version {packageJson.version}</span>
             </div>
           </div>
         </div>
