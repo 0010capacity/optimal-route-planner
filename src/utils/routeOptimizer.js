@@ -312,7 +312,7 @@ export class HybridOptimizer {
 
     // 유클리드 거리 기반 필터링 적용
     console.log('Applying Euclidean distance filtering for brute force...');
-    const { validPairs, threshold, avgDist } = filterByEuclideanDistance(locations, 1.5);
+    const { validPairs, threshold, avgDist } = filterByEuclideanDistance(locations, 2.0);
 
     // 필터링된 순열 생성 (유효한 쌍만 포함)
     const filteredPermutations = getPermutations(waypoints).filter(perm => {
@@ -341,10 +341,10 @@ export class HybridOptimizer {
       const currentLocations = [start, ...perm, end];
       const coordsArray = currentLocations.map(loc => loc.coords);
       const namesArray = currentLocations.map(loc => loc.name);
-      
+
       const result = await getDirections(coordsArray, namesArray);
       apiCallCount++;
-      
+
       if (result && result.totalTime < bestTime) {
         bestTime = result.totalTime;
         bestRoute = {
@@ -373,7 +373,7 @@ export class HybridOptimizer {
 
     // 유클리드 거리 기반 필터링 적용
     console.log('Applying Euclidean distance filtering for TSP DP...');
-    const { validPairs, threshold, avgDist } = filterByEuclideanDistance(locations, 1.5);
+    const { validPairs, threshold, avgDist } = filterByEuclideanDistance(locations, 2.0);
 
     // 필터링된 위치들로 새로운 위치 배열 생성
     const filteredIndices = new Set();
@@ -434,7 +434,7 @@ export class HybridOptimizer {
 
     // 유클리드 거리 기반 필터링 적용
     console.log('Applying Euclidean distance filtering for 2-opt...');
-    const { validPairs, threshold, avgDist } = filterByEuclideanDistance(locations, 1.5);
+    const { validPairs, threshold, avgDist } = filterByEuclideanDistance(locations, 2.0);
 
     // 필터링된 위치들로 새로운 위치 배열 생성
     const filteredIndices = new Set();
@@ -494,7 +494,7 @@ export class HybridOptimizer {
 
     // 유클리드 거리 기반 필터링 적용
     console.log('Applying Euclidean distance filtering for heuristic...');
-    const { validPairs, threshold, avgDist } = filterByEuclideanDistance(locations, 1.5);
+    const { validPairs, threshold, avgDist } = filterByEuclideanDistance(locations, 2.0);
 
     // 필터링된 위치들로 새로운 위치 배열 생성
     const filteredIndices = new Set();
