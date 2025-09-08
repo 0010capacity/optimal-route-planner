@@ -43,7 +43,8 @@ function App() {
     markersRef,
     polylineRef,
     moveMapToLocation,
-    getCurrentLocation
+    getCurrentLocation,
+    isGettingLocation
   } = useMap();
 
   const {
@@ -365,6 +366,7 @@ function App() {
       <MapSection
         mapRef={mapRef}
         onGetCurrentLocation={getCurrentLocation}
+        isGettingLocation={isGettingLocation}
       />
 
       {/* 지도 선택 모달 */}
