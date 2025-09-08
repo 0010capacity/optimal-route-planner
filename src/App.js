@@ -17,6 +17,10 @@ function App() {
   const [editingIndex, setEditingIndex] = useState(null);
   const [showFavorites, setShowFavorites] = useState(false);
 
+  // 페이지네이션 상태
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   // LocalStorage for locations
   const [storedLocations, setStoredLocations] = useLocalStorage('routeLocations', []);
 
@@ -54,6 +58,13 @@ function App() {
     loading,
     clearSearch
   } = useSearch(currentMode, mapCenter);
+
+  // 검색어가 변경될 때 페이지를 1로 리셋
+  useEffect(() => {
+    if (searchQuery) {
+      setCurrentPage(1);
+    }
+  }, [searchQuery]);
 
   const {
     favorites,
@@ -353,6 +364,8 @@ function App() {
           loading={loading}
           favorites={favorites}
           showFavorites={showFavorites}
+          currentPage={currentPage}
+          itemsPerPage={itemsPerPage}
           onSearchQueryChange={setSearchQuery}
           onBackToList={handleBackToList}
           onSearchResultSelect={handleSearchResultSelect}
@@ -360,6 +373,7 @@ function App() {
           onAddToFavorites={addToFavorites}
           onRemoveFromFavorites={removeFromFavorites}
           onSelectFromFavorites={handleSelectFromFavorites}
+          onPageChange={setCurrentPage}
         />
       )}
 
@@ -424,7 +438,7 @@ function App() {
               <span>© 2025 최적 경로 플래너. MIT License.</span>
             </div>
             <div className="footer-version">
-              <span>Version 0.1.0</span>
+              <span>Version 0.2.0</span>
             </div>
           </div>
         </div>

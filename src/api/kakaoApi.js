@@ -19,59 +19,85 @@ export const searchPlaces = (query, options = {}) => {
 
     const places = new window.kakao.maps.services.Places();
 
-    // 간소화된 검색 옵션 설정 (location 우선)
-    const searchOptions = {
-      // 결과 개수 (기본 15)
-      size: options.size || 15,
+    // Kakao API 제한: size 최대 15, 여러 페이지 호출로 해결
+    const maxSizePerPage = 15;
+    const totalPages = Math.min(options.totalPages || 2, 3); // 최대 3페이지 (45개 결과)
+    let allResults = [];
+    let completedRequests = 0;
 
-      // 페이지 (기본 1)
-      page: options.page || 1,
+    const searchPage = (page) => {
+      const searchOptions = {
+        size: maxSizePerPage,
+        page: page,
+      };
 
-      // 정렬 옵션 (기본 정확도 순)
-      sort: options.sort || window.kakao.maps.services.SortBy.ACCURACY,
+      // 중심 좌표 설정
+      if (options.location) {
+        if (options.location instanceof window.kakao.maps.LatLng) {
+          searchOptions.location = options.location;
+        } else if (typeof options.location === 'string') {
+          const [lat, lng] = options.location.split(',').map(coord => parseFloat(coord.trim()));
+          searchOptions.location = new window.kakao.maps.LatLng(lat, lng);
+        }
+      }
+
+      places.keywordSearch(query, (data, status, pagination) => {
+        if (status === window.kakao.maps.services.Status.OK) {
+          const pageResults = data.map(item => ({
+            title: item.place_name,
+            category: item.category_name || "장소",
+            telephone: item.phone || "",
+            address: item.address_name || "",
+            roadAddress: item.road_address_name || item.address_name || "",
+            x: item.x || "",
+            y: item.y || "",
+            place_url: item.place_url || "",
+            distance: item.distance || "",
+          }));
+
+          allResults = [...allResults, ...pageResults];
+          completedRequests++;
+
+          // 모든 페이지 요청 완료 시 결과 반환
+          if (completedRequests === totalPages) {
+            resolve({
+              results: allResults,
+              pagination: {
+                totalCount: pagination.totalCount,
+                hasNextPage: pagination.hasNextPage,
+                hasPrevPage: pagination.hasPrevPage,
+                current: pagination.current,
+              }
+            });
+          }
+        } else if (status === window.kakao.maps.services.Status.ZERO_RESULT) {
+          completedRequests++;
+          if (completedRequests === totalPages) {
+            resolve({
+              results: allResults,
+              pagination: null
+            });
+          }
+        } else {
+          console.error(`❌ Kakao SDK search failed on page ${page}:`, status);
+          completedRequests++;
+          if (completedRequests === totalPages) {
+            if (allResults.length > 0) {
+              resolve({
+                results: allResults,
+                pagination: null
+              });
+            } else {
+              reject(new Error(`Search failed: ${status}`));
+            }
+          }
+        }
+      }, searchOptions);
     };
 
-    // 중심 좌표 설정 (location만 사용)
-    if (options.location) {
-      // location: LatLng 객체 또는 "위도,경도" 문자열
-      if (options.location instanceof window.kakao.maps.LatLng) {
-        searchOptions.location = options.location;
-      } else if (typeof options.location === 'string') {
-        const [lat, lng] = options.location.split(',').map(coord => parseFloat(coord.trim()));
-        searchOptions.location = new window.kakao.maps.LatLng(lat, lng);
-      }
+    // 여러 페이지 요청 시작
+    for (let page = 1; page <= totalPages; page++) {
+      searchPage(page);
     }
-
-    // 키워드 검색 실행
-    places.keywordSearch(query, (data, status, pagination) => {
-      if (status === window.kakao.maps.services.Status.OK) {
-        const results = data.map(item => ({
-          title: item.place_name,
-          category: item.category_name || "장소",
-          telephone: item.phone || "",
-          address: item.address_name || "",
-          roadAddress: item.road_address_name || item.address_name || "",
-          x: item.x || "",  // 경도 (longitude)
-          y: item.y || "",  // 위도 (latitude)
-          place_url: item.place_url || "",
-          distance: item.distance || "",
-        }));
-
-        resolve({
-          results,
-          pagination: {
-            totalCount: pagination.totalCount,
-            hasNextPage: pagination.hasNextPage,
-            hasPrevPage: pagination.hasPrevPage,
-            current: pagination.current,
-          }
-        });
-      } else if (status === window.kakao.maps.services.Status.ZERO_RESULT) {
-        resolve({ results: [], pagination: null });
-      } else {
-        console.error('❌ Kakao SDK search failed:', status);
-        reject(new Error(`Search failed: ${status}`));
-      }
-    }, searchOptions);
   });
 };

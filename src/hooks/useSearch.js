@@ -47,7 +47,7 @@ export const useSearch = (currentMode, mapCenter) => {
         const searchResponse = await searchPlaces(searchQuery, { location: validCenter });
         const results = searchResponse.results || [];
 
-        // 거리순 정렬
+        // 거리순 정렬 (여러 페이지 결과 모두 사용)
         const sortedResults = results
           .map(result => ({
             ...result,
@@ -56,8 +56,7 @@ export const useSearch = (currentMode, mapCenter) => {
               lng: parseFloat(result.x)
             })
           }))
-          .sort((a, b) => a.distance - b.distance)
-          .slice(0, 10);
+          .sort((a, b) => a.distance - b.distance);
 
         setSearchResults(sortedResults);
       } catch (error) {
