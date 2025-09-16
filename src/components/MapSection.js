@@ -9,12 +9,24 @@ const MapSection = ({ mapRef, onGetCurrentLocation, isGettingLocation }) => {
     setIsClient(true);
     console.log('MapSection useEffect 실행됨');
     console.log('MapSection mapRef:', mapRef);
+
+    // ref가 설정될 때까지 기다림
+    const checkRef = () => {
+      if (mapRef.current) {
+        console.log('MapSection ref 설정됨:', mapRef.current);
+      } else {
+        console.log('MapSection ref 아직 null');
+        setTimeout(checkRef, 50);
+      }
+    };
+
     if (typeof window !== 'undefined') {
       const updateHeight = () => {
         setMapHeight(window.innerWidth <= 768 ? '300px' : '400px');
       };
       updateHeight();
       window.addEventListener('resize', updateHeight);
+      setTimeout(checkRef, 100); // 약간 지연 후 ref 체크 시작
       return () => window.removeEventListener('resize', updateHeight);
     }
   }, []);
