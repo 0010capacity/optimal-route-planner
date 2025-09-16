@@ -1,25 +1,59 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "최적 경로 플래너",
+  "name": "최적 경로 플래너 - 스마트한 이동 경로 최적화",
   "icons": [
     {
-      "src": "favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
+      "src": "icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
-      "src": "logo192.png",
+      "src": "icon.png",
+      "sizes": "512x512",
       "type": "image/png",
-      "sizes": "192x192"
+      "purpose": "any maskable"
     },
     {
-      "src": "logo512.png",
+      "src": "icon.png",
+      "sizes": "192x192",
       "type": "image/png",
-      "sizes": "512x512"
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon.png",
+      "sizes": "64x64",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon.png",
+      "sizes": "32x32",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon.png",
+      "sizes": "16x16",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "theme_color": "#2563eb",
+  "background_color": "#ffffff",
+  "description": "여러 장소를 효율적으로 방문할 수 있는 최적 경로를 자동으로 계산해주는 웹 애플리케이션"
 }
