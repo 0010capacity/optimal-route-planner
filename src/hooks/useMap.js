@@ -2,6 +2,13 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 
 const DEFAULT_CENTER = { lat: 37.5665, lng: 126.9780 };
 
+// 전역 싱글톤 변수들 - 앱 전체에서 지도를 한 번만 초기화하기 위해
+let globalMapInstance = null;
+let globalIsInitialized = false;
+let globalMapContainer = null; // DOM element를 직접 저장
+let globalMarkersRef = [];
+let globalPolylineRef = null;
+
 // 모바일 기기 감지
 const isMobileDevice = () => {
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
@@ -19,67 +26,105 @@ const getGeolocationOptions = () => {
   };
 };
 
-export const useMap = () => {
+export const useMap = (mapContainerCallback) => {
   const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
   const [userLocation, setUserLocation] = useState(null);
   const [mapInstance, setMapInstance] = useState(null);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
-  const mapRef = useRef(null);
-  const markersRef = useRef([]);
-  const polylineRef = useRef(null);
-  const isInitializedRef = useRef(false); // 초기화 상태 추적
 
-  // 지도 초기화
+  // 지도 초기화 - 싱글톤 패턴 적용
   useEffect(() => {
-    console.log('useMap useEffect 실행됨');
-    console.log('mapRef.current:', mapRef.current);
-    console.log('window.naver:', window.naver);
-    console.log('window.naver.maps:', window.naver?.maps);
+    console.log('useMap useEffect 실행됨 (싱글톤 패턴)');
 
     if (typeof window === 'undefined') {
       console.log('서버 사이드에서는 실행하지 않음');
       return;
     }
 
-    // 이미 초기화되었으면 중복 실행 방지
-    if (isInitializedRef.current) {
-      console.log('지도가 이미 초기화됨, 중복 초기화 방지');
+    // 이미 전역에서 초기화되었으면 기존 인스턴스 사용
+    if (globalIsInitialized && globalMapInstance) {
+      console.log('지도가 이미 전역에서 초기화됨, 기존 인스턴스 사용');
+      setMapInstance(globalMapInstance);
       return;
     }
 
+    // 이미 초기화 중이면 중복 실행 방지
+    if (globalIsInitialized === 'initializing') {
+      console.log('지도 초기화 중, 중복 실행 방지');
+      return;
+    }
+
+    // 초기화 시작 표시
+    globalIsInitialized = 'initializing';
+
     // 지도 컨테이너가 준비될 때까지 기다림
+    let waitCount = 0;
+    const maxWaitCount = 50; // 최대 5초 대기
+    
     const waitForMapContainer = () => {
-      if (!mapRef.current) {
-        console.log('지도 컨테이너 대기 중...');
+      waitCount++;
+      
+      // 콜백을 통해 컨테이너를 가져옴
+      const container = mapContainerCallback ? mapContainerCallback() : null;
+      
+      if (!container) {
+        if (waitCount > maxWaitCount) {
+          console.error('지도 컨테이너 대기 시간 초과');
+          globalIsInitialized = false;
+          return;
+        }
+        console.log(`지도 컨테이너 대기 중... (${waitCount}/${maxWaitCount})`);
         setTimeout(waitForMapContainer, 100);
         return;
       }
 
-      console.log('지도 컨테이너 준비됨:', mapRef.current);
+      // 전역 컨테이너에 저장
+      globalMapContainer = container;
+      console.log('지도 컨테이너 준비됨:', globalMapContainer);
 
       // 네이버 지도 SDK가 로드될 때까지 기다림
+      let sdkWaitCount = 0;
+      const maxSdkWaitCount = 100; // 최대 10초 대기
+      
       const initMap = () => {
-        console.log('initMap 함수 실행');
-
+        sdkWaitCount++;
+        
         if (!window.naver || !window.naver.maps) {
-          console.log('네이버 지도 SDK 대기 중...');
+          if (sdkWaitCount > maxSdkWaitCount) {
+            console.error('네이버 지도 SDK 로드 시간 초과');
+            globalIsInitialized = false;
+            return;
+          }
+          console.log(`네이버 지도 SDK 대기 중... (${sdkWaitCount}/${maxSdkWaitCount})`);
           setTimeout(initMap, 100);
+          return;
+        }
+
+        // 이미 초기화되었는지 다시 확인
+        if (globalIsInitialized === true) {
+          console.log('지도가 이미 초기화됨, 중복 방지');
+          setMapInstance(globalMapInstance);
           return;
         }
 
         try {
           console.log('지도 초기화 시작...');
-          console.log('지도 컨테이너:', mapRef.current);
-          const map = new window.naver.maps.Map(mapRef.current, {
-            center: new window.naver.maps.LatLng(mapCenter.lat, mapCenter.lng),
+          
+          const map = new window.naver.maps.Map(globalMapContainer, {
+            center: new window.naver.maps.LatLng(DEFAULT_CENTER.lat, DEFAULT_CENTER.lng),
             zoom: 13,
             minZoom: 7,
             maxZoom: 21
           });
 
+          // 전역 변수에 저장
+          globalMapInstance = map;
+          globalIsInitialized = true;
+          globalMarkersRef = [];
+          globalPolylineRef = null;
+          
           setMapInstance(map);
-          isInitializedRef.current = true; // 초기화 완료 표시
-          console.log('지도 인스턴스 생성 완료');
+          console.log('지도 인스턴스 생성 완료 (싱글톤)');
 
           window.naver.maps.Event.addListener(map, 'center_changed', () => {
             const center = map.getCenter();
@@ -89,11 +134,10 @@ export const useMap = () => {
             });
           });
 
-          console.log('지도 초기화 완료');
+          console.log('지도 초기화 완료 (싱글톤)');
         } catch (error) {
           console.error('지도 초기화 오류:', error);
-          console.error('에러 상세:', error.message);
-          console.error('에러 스택:', error.stack);
+          globalIsInitialized = false; // 에러 시 초기화 상태 리셋
         }
       };
 
@@ -103,20 +147,11 @@ export const useMap = () => {
 
     waitForMapContainer();
 
+    // 클린업 함수 - 마지막 컴포넌트가 언마운트될 때만 정리
     return () => {
-      if (mapInstance) {
-        console.log('지도 인스턴스 정리');
-        markersRef.current.forEach(marker => marker.setMap(null));
-        markersRef.current = [];
-        if (polylineRef.current) {
-          polylineRef.current.setMap(null);
-          polylineRef.current = null;
-        }
-        setMapInstance(null);
-        isInitializedRef.current = false; // 초기화 상태 리셋
-      }
+      // Strict Mode에서는 정리하지 않음
     };
-  }, []); // 빈 의존성 배열로 변경
+  }, []); // 빈 의존성 배열
 
   // 지도 중심 업데이트
   useEffect(() => {
@@ -127,14 +162,14 @@ export const useMap = () => {
 
   const moveMapToLocation = useCallback((coords) => {
     setMapCenter(coords);
-    if (mapInstance) {
+    if (globalMapInstance) {
       try {
-        mapInstance.setCenter(new window.naver.maps.LatLng(coords.lat, coords.lng));
+        globalMapInstance.setCenter(new window.naver.maps.LatLng(coords.lat, coords.lng));
       } catch (error) {
         console.error('Error moving map:', error);
       }
     }
-  }, [mapInstance]);
+  }, []);
 
   const getCurrentLocation = useCallback(() => {
     // HTTPS 확인 (Geolocation API는 HTTPS에서만 작동)
@@ -229,13 +264,12 @@ export const useMap = () => {
   }, [moveMapToLocation]);
 
   return {
-    mapRef,
     mapCenter,
     setMapCenter,
     userLocation,
     mapInstance,
-    markersRef,
-    polylineRef,
+    markersRef: { current: globalMarkersRef }, // 전역 markers ref 반환
+    polylineRef: { current: globalPolylineRef }, // 전역 polyline ref 반환
     moveMapToLocation,
     getCurrentLocation,
     isGettingLocation

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { getDirections, shareToMap } from './api/naverApi';
 import MapSection from './components/MapSection';
@@ -49,8 +49,9 @@ function App() {
   const [showMapSelector, setShowMapSelector] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
 
+  const mapRef = useRef(null);
+
   const {
-    mapRef,
     mapCenter,
     userLocation,
     mapInstance,
@@ -59,7 +60,7 @@ function App() {
     moveMapToLocation,
     getCurrentLocation,
     isGettingLocation
-  } = useMap();
+  } = useMap(() => mapRef.current);
 
   const {
     searchQuery,

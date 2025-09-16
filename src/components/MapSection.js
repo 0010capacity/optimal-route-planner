@@ -1,22 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from './Icon';
 
 const MapSection = ({ mapRef, onGetCurrentLocation, isGettingLocation }) => {
   const [mapHeight, setMapHeight] = useState('400px');
   const [isClient, setIsClient] = useState(false);
+  const isInitializedRef = useRef(false); // MapSection 초기화 상태 추적
 
   useEffect(() => {
+    // 이미 초기화되었으면 중복 실행 방지
+    if (isInitializedRef.current) {
+      return;
+    }
+    
     setIsClient(true);
-    console.log('MapSection useEffect 실행됨');
-    console.log('MapSection mapRef:', mapRef);
+    isInitializedRef.current = true;
 
-    // ref가 설정될 때까지 기다림
+    // ref가 설정될 때까지 기다림 (최적화된 버전)
     const checkRef = () => {
       if (mapRef.current) {
-        console.log('MapSection ref 설정됨:', mapRef.current);
-      } else {
-        console.log('MapSection ref 아직 null');
-        setTimeout(checkRef, 50);
+        console.log('MapSection ref 설정됨');
       }
     };
 
@@ -26,10 +28,17 @@ const MapSection = ({ mapRef, onGetCurrentLocation, isGettingLocation }) => {
       };
       updateHeight();
       window.addEventListener('resize', updateHeight);
-      setTimeout(checkRef, 100); // 약간 지연 후 ref 체크 시작
+      
+      // ref 체크는 한 번만 수행
+      if (mapRef.current) {
+        checkRef();
+      } else {
+        setTimeout(checkRef, 100);
+      }
+      
       return () => window.removeEventListener('resize', updateHeight);
     }
-  }, []);
+  }, []); // 빈 의존성 배열로 중복 실행 방지
 
   if (!isClient) {
     return (
