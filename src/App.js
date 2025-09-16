@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { getDirections, shareToMap } from './api/naverApi';
-import LocationList from './components/LocationList';
-import SearchSection from './components/SearchSection';
 import MapSection from './components/MapSection';
 import { Icon } from './components/Icon';
 import { useSearch } from './hooks/useSearch';
@@ -10,8 +9,18 @@ import { useFavorites } from './hooks/useFavorites';
 import { useMapMarkers } from './hooks/useMapMarkers';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { HybridOptimizer } from './utils/routeOptimizer';
-import packageJson from '../package.json';
 import './App.css';
+
+// Dynamic imports for components to avoid SSR issues
+const LocationList = dynamic(() => import('./components/LocationList'), {
+  ssr: false,
+  loading: () => <div>Loading...</div>
+});
+
+const SearchSection = dynamic(() => import('./components/SearchSection'), {
+  ssr: false,
+  loading: () => <div>Loading...</div>
+});
 
 function App() {
   const [currentMode, setCurrentMode] = useState('list');
@@ -439,7 +448,7 @@ function App() {
               <span>© 2025 최적 경로 플래너. MIT License.</span>
             </div>
             <div className="footer-version">
-              <span>Version {packageJson.version}</span>
+              <span>Version 0.3.0</span>
             </div>
           </div>
         </div>

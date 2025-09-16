@@ -1,17 +1,21 @@
 // API 모듈들의 중앙 집중화된 export
 // 각 API별로 분리된 모듈들을 통합 관리
 
+import { searchPlaces } from './kakaoApi.js';
+import { getDirections } from './naverApi.js';
+import { getDistance, isValidCoordinate, isValidCoordinateArray } from './utils.js';
+
 // Kakao Maps API
-export { searchPlaces } from './kakaoApi.js';
+export { searchPlaces };
 
 // NAVER Maps API
-export { getDirections } from './naverApi.js';
+export { getDirections };
 
 // 유틸리티 함수들
-export { getDistance, isValidCoordinate, isValidCoordinateArray } from './utils.js';
+export { getDistance, isValidCoordinate, isValidCoordinateArray };
 
 // 기본 export (주요 함수들)
-export default {
+const api = {
   // Kakao API
   searchPlaces,
 
@@ -23,3 +27,5 @@ export default {
   isValidCoordinate,
   isValidCoordinateArray,
 };
+
+export default api;

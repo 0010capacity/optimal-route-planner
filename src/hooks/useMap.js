@@ -30,31 +30,78 @@ export const useMap = () => {
 
   // 지도 초기화
   useEffect(() => {
-    if (!mapRef.current || !window.naver || !window.naver.maps) return;
+    console.log('useMap useEffect 실행됨');
+    console.log('mapRef.current:', mapRef.current);
+    console.log('window.naver:', window.naver);
+    console.log('window.naver.maps:', window.naver?.maps);
 
-    const map = new window.naver.maps.Map(mapRef.current, {
-      center: new window.naver.maps.LatLng(mapCenter.lat, mapCenter.lng),
-      zoom: 13,
-      minZoom: 7,
-      maxZoom: 21
-    });
+    if (typeof window === 'undefined') {
+      console.log('서버 사이드에서는 실행하지 않음');
+      return;
+    }
 
-    setMapInstance(map);
+    // 지도 컨테이너가 준비될 때까지 기다림
+    const waitForMapContainer = () => {
+      if (!mapRef.current) {
+        console.log('지도 컨테이너 대기 중...');
+        setTimeout(waitForMapContainer, 100);
+        return;
+      }
 
-    window.naver.maps.Event.addListener(map, 'center_changed', () => {
-      const center = map.getCenter();
-      setMapCenter({
-        lat: center.lat(),
-        lng: center.lng()
-      });
-    });
+      console.log('지도 컨테이너 준비됨:', mapRef.current);
+
+      // 네이버 지도 SDK가 로드될 때까지 기다림
+      const initMap = () => {
+        console.log('initMap 함수 실행');
+        if (!window.naver || !window.naver.maps) {
+          console.log('네이버 지도 SDK 대기 중...');
+          setTimeout(initMap, 100);
+          return;
+        }
+
+        try {
+          console.log('지도 초기화 시작...');
+          console.log('지도 컨테이너:', mapRef.current);
+          const map = new window.naver.maps.Map(mapRef.current, {
+            center: new window.naver.maps.LatLng(mapCenter.lat, mapCenter.lng),
+            zoom: 13,
+            minZoom: 7,
+            maxZoom: 21
+          });
+
+          setMapInstance(map);
+          console.log('지도 인스턴스 생성 완료');
+
+          window.naver.maps.Event.addListener(map, 'center_changed', () => {
+            const center = map.getCenter();
+            setMapCenter({
+              lat: center.lat(),
+              lng: center.lng()
+            });
+          });
+
+          console.log('지도 초기화 완료');
+        } catch (error) {
+          console.error('지도 초기화 오류:', error);
+          console.error('에러 상세:', error.message);
+          console.error('에러 스택:', error.stack);
+        }
+      };
+
+      // 약간의 지연 후 초기화 시작
+      setTimeout(initMap, 100);
+    };
+
+    waitForMapContainer();
 
     return () => {
-      markersRef.current.forEach(marker => marker.setMap(null));
-      markersRef.current = [];
-      if (polylineRef.current) {
-        polylineRef.current.setMap(null);
-        polylineRef.current = null;
+      if (mapInstance) {
+        markersRef.current.forEach(marker => marker.setMap(null));
+        markersRef.current = [];
+        if (polylineRef.current) {
+          polylineRef.current.setMap(null);
+          polylineRef.current = null;
+        }
       }
     };
   }, []);

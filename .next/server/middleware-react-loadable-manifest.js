@@ -1,0 +1,1 @@
+self.__REACT_LOADABLE_MANIFEST="{\"App.js -> ./components/LocationList\":{\"id\":\"App.js -> ./components/LocationList\",\"files\":[\"static/chunks/_pages-dir-browser_src_components_LocationList_js.js\"]},\"App.js -> ./components/SearchSection\":{\"id\":\"App.js -> ./components/SearchSection\",\"files\":[\"static/chunks/_pages-dir-browser_src_components_SearchSection_js.js\"]}}"

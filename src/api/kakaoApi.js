@@ -43,11 +43,13 @@ const getSearchOptions = (query, options, page) => {
   // 의도에 따른 옵션 설정
   if (intent.priority === 'distance' && options.location) {
     // 카테고리 검색: 거리 우선 (location 지정)
-    if (options.location instanceof window.kakao.maps.LatLng) {
+    if (typeof window !== 'undefined' && window.kakao && window.kakao.maps && window.kakao.maps.LatLng && options.location instanceof window.kakao.maps.LatLng) {
       searchOptions.location = options.location;
     } else if (typeof options.location === 'string') {
       const [lat, lng] = options.location.split(',').map(coord => parseFloat(coord.trim()));
-      searchOptions.location = new window.kakao.maps.LatLng(lat, lng);
+      if (typeof window !== 'undefined' && window.kakao && window.kakao.maps && window.kakao.maps.LatLng) {
+        searchOptions.location = new window.kakao.maps.LatLng(lat, lng);
+      }
     }
   }
   // 특정 장소나 주소 검색: 정확도 우선 (location 미지정)
@@ -126,7 +128,7 @@ export const searchPlaces = (query, options = {}) => {
     }
 
     // Kakao SDK v2 확인
-    if (!window.kakao || !window.kakao.maps || !window.kakao.maps.services) {
+    if (typeof window === 'undefined' || !window.kakao || !window.kakao.maps || !window.kakao.maps.services) {
       console.error('❌ Kakao SDK v2 not available');
       resolve([]);
       return;

@@ -234,7 +234,7 @@ class PerformanceMonitor {
 export const performanceMonitor = new PerformanceMonitor();
 
 // 개발 환경에서만 전역 객체에 노출
-if (process.env.NODE_ENV === 'development') {
+if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
   window.performanceMonitor = performanceMonitor;
 }
 
