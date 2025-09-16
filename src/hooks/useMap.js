@@ -27,6 +27,7 @@ export const useMap = () => {
   const mapRef = useRef(null);
   const markersRef = useRef([]);
   const polylineRef = useRef(null);
+  const isInitializedRef = useRef(false); // 초기화 상태 추적
 
   // 지도 초기화
   useEffect(() => {
@@ -37,6 +38,12 @@ export const useMap = () => {
 
     if (typeof window === 'undefined') {
       console.log('서버 사이드에서는 실행하지 않음');
+      return;
+    }
+
+    // 이미 초기화되었으면 중복 실행 방지
+    if (isInitializedRef.current) {
+      console.log('지도가 이미 초기화됨, 중복 초기화 방지');
       return;
     }
 
@@ -53,6 +60,7 @@ export const useMap = () => {
       // 네이버 지도 SDK가 로드될 때까지 기다림
       const initMap = () => {
         console.log('initMap 함수 실행');
+
         if (!window.naver || !window.naver.maps) {
           console.log('네이버 지도 SDK 대기 중...');
           setTimeout(initMap, 100);
@@ -70,6 +78,7 @@ export const useMap = () => {
           });
 
           setMapInstance(map);
+          isInitializedRef.current = true; // 초기화 완료 표시
           console.log('지도 인스턴스 생성 완료');
 
           window.naver.maps.Event.addListener(map, 'center_changed', () => {
@@ -96,15 +105,18 @@ export const useMap = () => {
 
     return () => {
       if (mapInstance) {
+        console.log('지도 인스턴스 정리');
         markersRef.current.forEach(marker => marker.setMap(null));
         markersRef.current = [];
         if (polylineRef.current) {
           polylineRef.current.setMap(null);
           polylineRef.current = null;
         }
+        setMapInstance(null);
+        isInitializedRef.current = false; // 초기화 상태 리셋
       }
     };
-  }, []);
+  }, []); // 빈 의존성 배열로 변경
 
   // 지도 중심 업데이트
   useEffect(() => {
