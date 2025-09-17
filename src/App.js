@@ -11,6 +11,7 @@ import { useAppState } from './hooks/useAppState';
 import { useRouteCalculation } from './hooks/useRouteCalculation';
 import { useAppHandlers } from './hooks/useAppHandlers';
 import { WebVitals } from './components/WebVitals';
+import MapSelectorModal from './components/MapSelectorModal';
 
 // Dynamic imports for components to avoid SSR issues
 const LocationList = dynamic(() => import('./components/LocationList'), {
@@ -159,12 +160,6 @@ function App() {
     setShowMapSelector(true);
   };
 
-  // Handle map select and close modal
-  const handleMapSelectAndClose = (mapType) => {
-    handleMapSelect(mapType);
-    setShowMapSelector(false);
-  };
-
   const handleSelectFromFavorites = useCallback((locationName) => {
     setSearchQuery(locationName);
     setCurrentPage(1); // Reset to first page
@@ -228,37 +223,11 @@ function App() {
         isGettingLocation={isGettingLocation}
       />
 
-      {/* 지도 선택 모달 */}
-      {showMapSelector && (
-        <div className="modal-overlay" onClick={() => setShowMapSelector(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h3>지도 선택</h3>
-            <p>어떤 지도로 공유하시겠습니까?</p>
-            <div className="modal-buttons">
-              <button 
-                className="modal-button naver-button"
-                onClick={() => handleMapSelectAndClose('naver')}
-              >
-                <Icon name="map" size={20} />
-                <span>네이버 지도</span>
-              </button>
-              <button 
-                className="modal-button kakao-button"
-                onClick={() => handleMapSelectAndClose('kakao')}
-              >
-                <Icon name="map" size={20} />
-                <span>카카오맵</span>
-              </button>
-            </div>
-            <button 
-              className="modal-close"
-              onClick={() => setShowMapSelector(false)}
-            >
-              <Icon name="close" size={16} />
-            </button>
-          </div>
-        </div>
-      )}
+      <MapSelectorModal
+        showMapSelector={showMapSelector}
+        onClose={() => setShowMapSelector(false)}
+        onMapSelect={handleMapSelect}
+      />
 
       {/* Footer */}
       <footer className="app-footer">

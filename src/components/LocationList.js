@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -18,9 +18,12 @@ import {
 } from '@dnd-kit/sortable';
 import {CSS} from '@dnd-kit/utilities';
 import { Icon } from './Icon';
+import LoadingOverlay from './LoadingOverlay';
+import RouteSummary from './RouteSummary';
+import LocationControls from './LocationControls';
 
-// 개별 위치 아이템 컴포넌트
-const SortableLocationItem = ({ 
+// 개별 위치 아이템 컴포넌트 - 메모이제이션 적용
+const SortableLocationItem = memo(({ 
   location, 
   index, 
   isFirst, 
@@ -90,7 +93,7 @@ const SortableLocationItem = ({
       )}
     </li>
   );
-};
+});
 
 const LocationList = ({
   locations,
@@ -138,14 +141,7 @@ const LocationList = ({
 
   return (
     <>
-      {isOptimizing && (
-        <div className="loading-overlay">
-          <div className="loading-content">
-            <div className="loading-spinner"></div>
-            <div className="loading-text">경로를 최적화하고 있습니다...</div>
-          </div>
-        </div>
-      )}
+      <LoadingOverlay isOptimizing={isOptimizing} />
       <div className="location-list-section">
         <DndContext
           sensors={sensors}
@@ -175,89 +171,19 @@ const LocationList = ({
           </SortableContext>
         </DndContext>
         
-        <button
-          className={`add-location-button ${locations.length >= 12 ? 'disabled' : ''}`}
-          onClick={onAddLocation}
-          disabled={isOptimizing || locations.length >= 12}
-          aria-label="새 장소 추가"
-          title={locations.length >= 12 ? "최대 12개 장소까지 추가할 수 있습니다" : "새 장소 추가"}
-        >
-          +
-        </button>
+        <LocationControls
+          locations={locations}
+          isOptimizing={isOptimizing}
+          optimizedRoute={optimizedRoute}
+          onAddLocation={onAddLocation}
+          onOptimizeRoute={onOptimizeRoute}
+          onShareRoute={onShareRoute}
+        />
         
-        <button
-          className={`optimize-button ${locations.length > 12 ? 'disabled' : ''}`}
-          onClick={onOptimizeRoute}
-          disabled={isOptimizing || locations.length < 2 || locations.length > 12 || locations.some(loc => !loc.name)}
-          aria-label="경로 최적화"
-        >
-          <Icon name="optimize" size={16} />
-          {isOptimizing ? '최적화 중...' : '경로 최적화'}
-        </button>
-        
-        <button
-          className="share-button"
-          onClick={onShareRoute}
-          disabled={!optimizedRoute || isOptimizing}
-          aria-label="지도 앱/웹으로 공유"
-          title="지도 앱/웹으로 공유"
-        >
-          <Icon name="share" size={16} />
-          지도 공유
-        </button>
-        
-        {optimizedRoute && (
-          <div className="route-summary" role="region" aria-label="최적화된 경로 정보">
-            <div className="route-stops">
-              {optimizedRoute.order.map((locationIndex, stopIndex) => {
-                const isFirst = stopIndex === 0;
-                const isLast = stopIndex === optimizedRoute.order.length - 1;
-                const locationName = locations[locationIndex]?.name || `위치 ${locationIndex + 1}`;
-                
-                return (
-                  <React.Fragment key={stopIndex}>
-                    <div className={`route-stop ${isFirst ? 'departure' : isLast ? 'arrival' : 'waypoint'}`}>
-                      <div className="stop-info">
-                        <span className="stop-name">{locationName}</span>
-                      </div>
-                    </div>
-                    {!isLast && optimizedRoute.segmentTimes && optimizedRoute.segmentTimes[stopIndex] && (
-                      <div className="route-segment">
-                        <Icon name="time" size={10} />
-                        {(() => {
-                          const segmentMinutes = Math.round(optimizedRoute.segmentTimes[stopIndex] / 60);
-                          return segmentMinutes > 0 ? `${segmentMinutes}분` : '<1분';
-                        })()}
-                        <span className="segment-separator">•</span>
-                        <Icon name="distance" size={10} />
-                        {(() => {
-                          const segmentDistance = optimizedRoute.segmentDistances ?
-                            optimizedRoute.segmentDistances[stopIndex] / 1000 :
-                            (optimizedRoute.totalDistance / 1000) / (optimizedRoute.order.length - 1);
-                          return segmentDistance.toFixed(1) + 'km';
-                        })()}
-                      </div>
-                    )}
-                  </React.Fragment>
-                );
-              })}
-            </div>
-            
-            <div className="route-stats">
-              <div className="stat-item">
-                <Icon name="time" size={14} />
-                <span>총 시간: {Math.round(optimizedRoute.totalTime / 60)}분</span>
-              </div>
-              <div className="stat-item">
-                <Icon name="distance" size={14} />
-                <span>총 거리: {(optimizedRoute.totalDistance / 1000).toFixed(1)}km</span>
-              </div>
-            </div>
-          </div>
-        )}
+        <RouteSummary optimizedRoute={optimizedRoute} locations={locations} />
       </div>
     </>
   );
 };
 
-export default LocationList;
+export default memo(LocationList);

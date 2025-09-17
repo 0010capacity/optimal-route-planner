@@ -5,6 +5,7 @@
 
 import getPermutations from './getPermutations.js';
 import { performanceMonitor } from './performanceMonitor.js';
+import { apiCache, generateDistanceMatrixCacheKey } from './apiCache.js';
 
 /**
  * 좌표 기반 유클리드 거리 계산 (단위: km)
@@ -482,6 +483,14 @@ export class HybridOptimizer {
    */
   static async buildDistanceMatrix(locations, getDirections) {
     const n = locations.length;
+    const cacheKey = generateDistanceMatrixCacheKey(locations);
+
+    // 캐시에서 거리 행렬 확인
+    const cachedMatrix = apiCache.get('distance_matrix', { locations: cacheKey });
+    if (cachedMatrix) {
+      return cachedMatrix;
+    }
+
     const matrix = Array(n).fill().map(() => Array(n).fill(0));
     let apiCallCount = 0;
 
@@ -495,10 +504,10 @@ export class HybridOptimizer {
       for (let j = i + 1; j < n; j++) {
         const coordsArray = [locations[i].coords, locations[j].coords];
         const namesArray = [locations[i].name, locations[j].name];
-        
+
         const result = await getDirections(coordsArray, namesArray);
         apiCallCount++;
-        
+
         if (result) {
           matrix[i][j] = result.totalTime;
           matrix[j][i] = result.totalTime; // 대칭 복사
@@ -508,6 +517,9 @@ export class HybridOptimizer {
         }
       }
     }
+
+    // 계산된 행렬을 캐시에 저장
+    apiCache.set('distance_matrix', { locations: cacheKey }, matrix);
 
     return matrix;
   }

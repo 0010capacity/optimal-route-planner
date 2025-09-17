@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, memo } from 'react';
 import { Icon } from './Icon';
 
-const MapSection = ({ mapRef, onGetCurrentLocation, isGettingLocation }) => {
+const MapSection = memo(({ mapRef, onGetCurrentLocation, isGettingLocation }) => {
   const [mapHeight, setMapHeight] = useState('400px');
   const [isClient, setIsClient] = useState(false);
   const isInitializedRef = useRef(false); // MapSection 초기화 상태 추적
@@ -79,6 +79,6 @@ const MapSection = ({ mapRef, onGetCurrentLocation, isGettingLocation }) => {
       />
     </div>
   );
-};
+});
 
 export default MapSection;

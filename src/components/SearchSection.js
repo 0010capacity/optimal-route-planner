@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Icon } from './Icon';
 
-const SearchSection = ({
+const SearchSection = memo(({
   searchQuery,
   searchResults,
   loading,
@@ -181,6 +181,6 @@ const SearchSection = ({
       </div>
     </>
   );
-};
+});
 
 export default SearchSection;
