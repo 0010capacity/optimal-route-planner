@@ -8,18 +8,18 @@ const nextConfig = {
     formats: ['image/webp', 'image/avif'],
   },
 
-  // 번들 분석 (개발 시에만)
+  // 번들 분석 (개발 및 프로덕션 시)
   ...(process.env.ANALYZE === 'true' && {
     webpack: (config) => {
-      if (process.env.NODE_ENV === 'development') {
-        const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
-        config.plugins.push(
-          new BundleAnalyzerPlugin({
-            analyzerMode: 'server',
-            openAnalyzer: true,
-          })
-        );
-      }
+      const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
+      config.plugins.push(
+        new BundleAnalyzerPlugin({
+          analyzerMode: 'server',
+          openAnalyzer: false, // 브라우저 자동 열기 비활성화
+          analyzerHost: '127.0.0.1',
+          analyzerPort: 8889, // 다른 포트 사용
+        })
+      );
       return config;
     },
   }),
