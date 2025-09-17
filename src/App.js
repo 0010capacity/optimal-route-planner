@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import MapSection from './components/MapSection';
 import { Icon } from './components/Icon';
 import { useSearch } from './hooks/useSearch';
@@ -152,10 +153,10 @@ function App() {
           locations={locations}
           optimizedRoute={optimizedRoute}
           onLocationClick={handleLocationClick}
-          onAddLocation={handleAddLocation}
+          onAddLocation={addLocation}
           onOptimizeRoute={handleOptimizeRoute}
-          onReorderLocations={handleReorderLocations}
-          onDeleteLocation={handleDeleteLocation}
+          onReorderLocations={reorderLocations}
+          onDeleteLocation={deleteLocation}
           isOptimizing={isOptimizing}
           onShareRoute={handleShareRouteWithModal}
         />
