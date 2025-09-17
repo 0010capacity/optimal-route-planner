@@ -142,7 +142,7 @@ export default async function handler(req, res) {
     };
 
     console.log('KAKAO Mobility API success:', {
-      totalTime: `${(result.totalTime/60000).toFixed(1)}min`,
+      totalTime: `${(result.totalTime/60).toFixed(1)}min`,
       totalDistance: `${(result.totalDistance/1000).toFixed(1)}km`,
       pathPoints: result.path.length,
       segments: result.segmentTimes.length,

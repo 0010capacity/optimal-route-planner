@@ -61,7 +61,7 @@ export const getDirections = async (coordsArray, namesArray, retryCount = 3) => 
       }
 
       console.log('Next.js API directions response:', {
-        totalTime: `${(data.totalTime/60000).toFixed(1)}min`,
+        totalTime: `${(data.totalTime/60).toFixed(1)}min`,
         totalDistance: `${(data.totalDistance/1000).toFixed(1)}km`,
         pathPoints: data.path?.length || 0,
         segments: data.segmentTimes?.length || 0

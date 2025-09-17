@@ -225,7 +225,7 @@ const LocationList = ({
                       <div className="route-segment">
                         <Icon name="time" size={10} />
                         {(() => {
-                          const segmentMinutes = Math.round(optimizedRoute.segmentTimes[stopIndex] / 60000);
+                          const segmentMinutes = Math.round(optimizedRoute.segmentTimes[stopIndex] / 60);
                           return segmentMinutes > 0 ? `${segmentMinutes}분` : '<1분';
                         })()}
                         <span className="segment-separator">•</span>
@@ -246,7 +246,7 @@ const LocationList = ({
             <div className="route-stats">
               <div className="stat-item">
                 <Icon name="time" size={14} />
-                <span>총 시간: {Math.round(optimizedRoute.totalTime / 60000)}분</span>
+                <span>총 시간: {Math.round(optimizedRoute.totalTime / 60)}분</span>
               </div>
               <div className="stat-item">
                 <Icon name="distance" size={14} />

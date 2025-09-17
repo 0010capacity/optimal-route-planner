@@ -154,7 +154,7 @@ export const useAppHandlers = (
         });
 
         // Log results (console only)
-        const totalMinutes = Math.round(routeData.totalTime / 60000);
+        const totalMinutes = Math.round(routeData.totalTime / 60);
         const hours = Math.floor(totalMinutes / 60);
         const minutes = totalMinutes % 60;
         const timeString = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
