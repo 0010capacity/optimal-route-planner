@@ -18,8 +18,6 @@ export const getDirections = async (coordsArray, namesArray, retryCount = 3) => 
   
   for (let attempt = 1; attempt <= retryCount; attempt++) {
     try {
-      console.log(`Getting directions (attempt ${attempt}/${retryCount}) for coords:`, coordsArray);
-      
       const response = await fetch(nextJsUrl, {
         method: 'POST',
         headers: {
@@ -59,13 +57,6 @@ export const getDirections = async (coordsArray, namesArray, retryCount = 3) => 
         }
         return null;
       }
-
-      console.log('Next.js API directions response:', {
-        totalTime: `${(data.totalTime/60).toFixed(1)}min`,
-        totalDistance: `${(data.totalDistance/1000).toFixed(1)}km`,
-        pathPoints: data.path?.length || 0,
-        segments: data.segmentTimes?.length || 0
-      });
 
       return data;
       

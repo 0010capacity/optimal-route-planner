@@ -13,16 +13,12 @@ export const useRouteCalculation = (geocodedLocations, isOptimizing, setOptimize
         const actualSegmentDistances = [];
         let fullPath = [];
 
-        console.log('Auto route: Getting individual segment data only...');
-
         for (let i = 0; i < geocodedLocations.length - 1; i++) {
           const segmentStart = geocodedLocations[i];
           const segmentEnd = geocodedLocations[i + 1];
 
           const segmentCoordsArray = [segmentStart.coords, segmentEnd.coords];
           const segmentNamesArray = [segmentStart.name, segmentEnd.name];
-
-          console.log(`Auto route segment ${i}: ${segmentStart.name} → ${segmentEnd.name}`);
 
           const segmentResult = await getDirections(segmentCoordsArray, segmentNamesArray);
           if (segmentResult) {
@@ -34,9 +30,7 @@ export const useRouteCalculation = (geocodedLocations, isOptimizing, setOptimize
             } else {
               fullPath = [...fullPath, ...segmentResult.path.slice(1)];
             }
-            console.log(`Auto route segment ${i}: ${(segmentResult.totalTime/60).toFixed(1)}min, ${(segmentResult.totalDistance/1000).toFixed(1)}km`);
           } else {
-            console.log(`Auto route segment ${i}: API call failed`);
             return; // Stop calculation on failure
           }
         }
@@ -44,8 +38,6 @@ export const useRouteCalculation = (geocodedLocations, isOptimizing, setOptimize
         // Calculate total time and distance
         const totalActualTime = actualSegmentTimes.reduce((sum, time) => sum + time, 0);
         const totalActualDistance = actualSegmentDistances.reduce((sum, dist) => sum + dist, 0);
-
-        console.log(`Auto route actual totals: ${(totalActualTime/60).toFixed(1)}min, ${(totalActualDistance/1000).toFixed(1)}km`);
 
         setOptimizedRoute({
           path: fullPath,

@@ -15,26 +15,12 @@ const MapSection = ({ mapRef, onGetCurrentLocation, isGettingLocation }) => {
     setIsClient(true);
     isInitializedRef.current = true;
 
-    // ref가 설정될 때까지 기다림 (최적화된 버전)
-    const checkRef = () => {
-      if (mapRef.current) {
-        console.log('MapSection ref 설정됨');
-      }
-    };
-
     if (typeof window !== 'undefined') {
       const updateHeight = () => {
         setMapHeight(window.innerWidth <= 768 ? '300px' : '400px');
       };
       updateHeight();
       window.addEventListener('resize', updateHeight);
-      
-      // ref 체크는 한 번만 수행
-      if (mapRef.current) {
-        checkRef();
-      } else {
-        setTimeout(checkRef, 100);
-      }
       
       return () => window.removeEventListener('resize', updateHeight);
     }

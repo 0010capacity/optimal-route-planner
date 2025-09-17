@@ -53,8 +53,6 @@ export const useSearch = (currentMode, mapCenter) => {
           return self.findIndex(r => `${r.title}_${r.address}` === key) === index;
         });
 
-        console.log(`🔄 중복 제거: ${results.length} → ${uniqueResults.length}`);
-
         // 검색 의도에 따른 정렬 적용
         const isSpecificPlaceQuery = (query) => {
           const placePatterns = [
@@ -67,11 +65,9 @@ export const useSearch = (currentMode, mapCenter) => {
         let finalResults;
         if (isSpecificPlaceQuery(searchQuery)) {
           // 특정 장소 검색: API에서 재정렬된 결과 그대로 사용
-          console.log('🎯 특정 장소 검색: 재정렬된 결과 사용');
           finalResults = uniqueResults;
         } else {
           // 카테고리 검색: 거리순 정렬 적용
-          console.log('📍 카테고리 검색: 거리순 정렬 적용');
           finalResults = uniqueResults
             .map(result => ({
               ...result,

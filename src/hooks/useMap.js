@@ -34,23 +34,18 @@ export const useMap = (mapContainerCallback) => {
 
   // 지도 초기화 - 싱글톤 패턴 적용
   useEffect(() => {
-    console.log('useMap useEffect 실행됨 (싱글톤 패턴)');
-
     if (typeof window === 'undefined') {
-      console.log('서버 사이드에서는 실행하지 않음');
       return;
     }
 
     // 이미 전역에서 초기화되었으면 기존 인스턴스 사용
     if (globalIsInitialized && globalMapInstance) {
-      console.log('지도가 이미 전역에서 초기화됨, 기존 인스턴스 사용');
       setMapInstance(globalMapInstance);
       return;
     }
 
     // 이미 초기화 중이면 중복 실행 방지
     if (globalIsInitialized === 'initializing') {
-      console.log('지도 초기화 중, 중복 실행 방지');
       return;
     }
 
@@ -73,16 +68,14 @@ export const useMap = (mapContainerCallback) => {
           globalIsInitialized = false;
           return;
         }
-        console.log(`지도 컨테이너 대기 중... (${waitCount}/${maxWaitCount})`);
         setTimeout(waitForMapContainer, 100);
         return;
       }
 
       // 전역 컨테이너에 저장
       globalMapContainer = container;
-      console.log('지도 컨테이너 준비됨:', globalMapContainer);
 
-      // 카카오 지도 SDK가 로드될 때까지 기다림
+      // Kakao 지도 SDK가 로드될 때까지 기다림
       let sdkWaitCount = 0;
       const maxSdkWaitCount = 100; // 최대 10초 대기
       
@@ -91,28 +84,24 @@ export const useMap = (mapContainerCallback) => {
         
         if (!window.kakao || !window.kakao.maps) {
           if (sdkWaitCount > maxSdkWaitCount) {
-            console.error('카카오 지도 SDK 로드 시간 초과');
+            console.error('Kakao 지도 SDK 로드 시간 초과');
             globalIsInitialized = false;
             return;
           }
-          console.log(`카카오 지도 SDK 대기 중... (${sdkWaitCount}/${maxSdkWaitCount})`);
           setTimeout(initMap, 100);
           return;
         }
 
         // 이미 초기화되었는지 다시 확인
         if (globalIsInitialized === true) {
-          console.log('지도가 이미 초기화됨, 중복 방지');
           setMapInstance(globalMapInstance);
           return;
         }
 
         try {
-          console.log('지도 초기화 시작...');
-          
           const map = new window.kakao.maps.Map(globalMapContainer, {
             center: new window.kakao.maps.LatLng(DEFAULT_CENTER.lat, DEFAULT_CENTER.lng),
-            level: 5 // 카카오 지도에서는 level 사용 (1-14, 숫자가 클수록 확대)
+            level: 5 // Kakao 지도에서는 level 사용 (1-14, 숫자가 클수록 확대)
           });
 
           // 전역 변수에 저장
@@ -122,7 +111,6 @@ export const useMap = (mapContainerCallback) => {
           globalPolylineRef = null;
           
           setMapInstance(map);
-          console.log('지도 인스턴스 생성 완료 (싱글톤)');
 
           // 지도 중심 변경 이벤트 리스너
           window.kakao.maps.event.addListener(map, 'center_changed', () => {
@@ -132,8 +120,6 @@ export const useMap = (mapContainerCallback) => {
               lng: center.getLng()
             });
           });
-
-          console.log('지도 초기화 완료 (싱글톤)');
         } catch (error) {
           console.error('지도 초기화 오류:', error);
           globalIsInitialized = false; // 에러 시 초기화 상태 리셋
@@ -178,7 +164,6 @@ export const useMap = (mapContainerCallback) => {
     }
 
     if (!navigator.geolocation) {
-      console.warn('이 브라우저는 위치 서비스를 지원하지 않습니다.');
       alert('이 브라우저는 위치 서비스를 지원하지 않습니다.');
       return;
     }
@@ -204,7 +189,6 @@ export const useMap = (mapContainerCallback) => {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude, accuracy } = position.coords;
-          console.log('위치 정보 획득 성공:', { latitude, longitude, accuracy });
           
           const newLocation = { lat: latitude, lng: longitude };
           setUserLocation(newLocation);
@@ -236,7 +220,6 @@ export const useMap = (mapContainerCallback) => {
           
           // 모바일에서는 정확도 낮춰서 재시도
           if (isMobile && options.enableHighAccuracy && error.code === error.TIMEOUT) {
-            console.log('정확도 낮춰서 재시도...');
             setTimeout(() => {
               navigator.geolocation.getCurrentPosition(
                 (position) => {
@@ -247,7 +230,6 @@ export const useMap = (mapContainerCallback) => {
                   setIsGettingLocation(false);
                 },
                 (retryError) => {
-                  console.error('재시도 실패:', retryError);
                   setIsGettingLocation(false);
                 },
                 { ...options, enableHighAccuracy: false, timeout: 15000 }

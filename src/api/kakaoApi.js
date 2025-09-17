@@ -1,4 +1,4 @@
-// Kakao Maps SDK 관련 API 함수들
+// Naver Maps SDK 관련 API 함수들
 // 장소 검색, 지도 관련 기능
 
 // 검색 의도 분석 함수
@@ -64,55 +64,32 @@ const reorderSearchResults = (results, query) => {
   // 검색 의도 분석
   const intent = analyzeSearchIntent(query);
 
-  console.log('🔍 검색 분석 결과:', {
-    query: trimmedQuery,
-    intent: intent,
-    isSpecificPlace: intent.isSpecificPlace,
-    resultsCount: results.length
-  });
-
   // 특정 장소 검색인 경우에만 재정렬 적용
   if (!intent.isSpecificPlace) {
-    console.log('🚫 특정 장소 검색이 아니므로 재정렬 생략');
     return results;
   }
-
-  console.log('✅ 특정 장소 검색으로 재정렬 시작');
 
   const exactMatches = [];
   const startsWithMatches = [];
   const otherMatches = [];
 
-  results.forEach((result, index) => {
+  results.forEach((result) => {
     const title = result.title.toLowerCase();
     const searchQuery = trimmedQuery.toLowerCase();
 
-    console.log(`📋 결과 ${index + 1}: "${result.title}" (검색어: "${searchQuery}")`);
-
     if (title === searchQuery) {
       // 정확히 일치하는 경우 (최우선)
-      console.log('🎯 정확히 일치:', result.title);
       exactMatches.push(result);
     } else if (title.startsWith(searchQuery)) {
       // 검색어로 시작하는 경우 (중우선)
-      console.log('🔸 시작 일치:', result.title);
       startsWithMatches.push(result);
     } else {
       // 그 외 경우
-      console.log('➖ 기타:', result.title);
       otherMatches.push(result);
     }
   });
 
   const reorderedResults = [...exactMatches, ...startsWithMatches, ...otherMatches];
-
-  console.log('📊 재정렬 결과:', {
-    원본: results.length,
-    정확일치: exactMatches.length,
-    시작일치: startsWithMatches.length,
-    기타: otherMatches.length,
-    최종: reorderedResults.length
-  });
 
   // 재정렬된 결과 반환
   return reorderedResults;
