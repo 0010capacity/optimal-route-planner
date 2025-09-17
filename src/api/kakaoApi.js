@@ -127,10 +127,34 @@ export const searchPlaces = (query, options = {}) => {
       return;
     }
 
-    // Kakao SDK v2 확인
-    if (typeof window === 'undefined' || !window.kakao || !window.kakao.maps || !window.kakao.maps.services) {
-      console.error('❌ Kakao SDK v2 not available');
+// Kakao SDK v2 확인
+    if (typeof window === 'undefined') {
+      console.error('❌ 서버 사이드에서는 Kakao SDK를 사용할 수 없습니다');
       resolve([]);
+      return;
+    }
+
+    if (!window.kakao || !window.kakao.maps || !window.kakao.maps.services) {
+      console.warn('⚠️ Kakao SDK가 아직 로드되지 않았습니다. 잠시 후 다시 시도해주세요.');
+      // SDK가 로드될 때까지 대기
+      setTimeout(() => {
+        if (window.kakao && window.kakao.maps && window.kakao.maps.services) {
+          console.log('✅ Kakao SDK 로드 확인됨, 검색 재시도');
+          // 재귀적으로 함수를 다시 호출
+          searchPlaces(query, options).then(resolve).catch(reject);
+        } else {
+          console.error('❌ Kakao SDK 로드 실패 - 재시도 중...');
+          // 한 번 더 시도
+          setTimeout(() => {
+            if (window.kakao && window.kakao.maps && window.kakao.maps.services) {
+              searchPlaces(query, options).then(resolve).catch(reject);
+            } else {
+              console.error('❌ Kakao SDK 로드 최종 실패');
+              resolve([]);
+            }
+          }, 1000);
+        }
+      }, 500);
       return;
     }
 

@@ -1,10 +1,10 @@
 import { Html, Head, Main, NextScript } from 'next/document';
+import Script from 'next/script';
 
 export default function Document() {
   return (
     <Html lang="ko">
       <Head>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content="#2563eb" />
         <meta
           name="description"
@@ -14,63 +14,28 @@ export default function Document() {
         <link rel="apple-touch-icon" href="/logo192.png" />
         <link rel="manifest" href="/manifest.json" />
 
-        {/* Naver Maps API Script */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                const script = document.createElement('script');
-                script.src = 'https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=3hku2yfd31';
-                script.onload = function() {
-                  console.log('네이버 지도 SDK 로드 완료');
-                };
-                script.onerror = function() {
-                  console.error('네이버 지도 SDK 로드 실패');
-                };
-                document.head.appendChild(script);
-              })();
-            `,
-          }}
-        />
-
-        {/* Kakao Maps JavaScript SDK v2 (Places 서비스 포함) */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                window.kakaoSdkReady = false;
-
-                window.initKakaoSdk = function() {
-                  if (window.kakao && window.kakao.maps) {
-                    try {
-                      window.kakao.maps.load(() => {
-                        window.kakaoSdkReady = true;
-                      });
-                    } catch (error) {}
-                  }
-                };
-
-                const script = document.createElement('script');
-                script.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=5be0a34292474922b240a1bd76ad518c&libraries=services&autoload=false';
-                script.async = true;
-
-                script.onload = function() {
-                  setTimeout(window.initKakaoSdk, 100);
-                };
-
-                script.onerror = function() {
-                  console.error('카카오 지도 SDK 로드 실패');
-                };
-
-                document.head.appendChild(script);
-              })();
-            `,
-          }}
-        />
       </Head>
       <body>
         <Main />
         <NextScript />
+
+        {/* Naver Maps API Script */}
+        <Script
+          src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=3hku2yfd31"
+          strategy="beforeInteractive"
+          onLoad={() => {
+            console.log('네이버 지도 SDK 로드 완료');
+          }}
+          onError={() => {
+            console.error('네이버 지도 SDK 로드 실패');
+          }}
+        />
+
+        {/* Kakao Maps JavaScript SDK v2 */}
+        <script
+          type="text/javascript"
+          src={`//dapi.kakao.com/v2/maps/sdk.js?appkey=${process.env.NEXT_PUBLIC_KAKAO_APP_KEY || '5be0a34292474922b240a1bd76ad518c'}&libraries=services`}
+        ></script>
       </body>
     </Html>
   );

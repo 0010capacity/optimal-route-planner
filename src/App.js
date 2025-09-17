@@ -8,8 +8,7 @@ import { useMap } from './hooks/useMap';
 import { useFavorites } from './hooks/useFavorites';
 import { useMapMarkers } from './hooks/useMapMarkers';
 import { useLocalStorage } from './hooks/useLocalStorage';
-import { HybridOptimizer } from './utils/routeOptimizer';
-import './App.css';
+import { WebVitals } from './components/WebVitals';
 
 // Dynamic imports for components to avoid SSR issues
 const LocationList = dynamic(() => import('./components/LocationList'), {
@@ -356,6 +355,7 @@ function App() {
 
   return (
     <div className="App">
+      <WebVitals />
       {currentMode === 'list' ? (
         <LocationList
           locations={locations}

@@ -1,9 +1,8 @@
 import { isValidCoordinateArray } from './utils.js';
 import { MapUrlGenerator } from '../utils/mapUrlGenerator.js';
 
-// NAVER Directions 5 API 사용
-const NAVER_CLIENT_ID = process.env.REACT_APP_NAVER_CLIENT_ID;
-const NAVER_CLIENT_SECRET = process.env.REACT_APP_NAVER_CLIENT_SECRET;
+// Next.js 환경 변수 사용
+const NAVER_CLIENT_ID = process.env.NEXT_PUBLIC_NAVER_CLIENT_ID;
 
 /**
  * 개선된 Directions API 호출 함수
@@ -15,13 +14,13 @@ export const getDirections = async (coordsArray, namesArray, retryCount = 3) => 
     return null;
   }
 
-  const firebaseUrl = 'https://asia-northeast3-my-optimal-route-planner.cloudfunctions.net/getDirections';
+  const nextJsUrl = '/api/directions';
   
   for (let attempt = 1; attempt <= retryCount; attempt++) {
     try {
       console.log(`Getting directions (attempt ${attempt}/${retryCount}) for coords:`, coordsArray);
       
-      const response = await fetch(firebaseUrl, {
+      const response = await fetch(nextJsUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -35,7 +34,7 @@ export const getDirections = async (coordsArray, namesArray, retryCount = 3) => 
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`Firebase Function error (attempt ${attempt}):`, response.status, response.statusText, errorText);
+        console.error(`Next.js API error (attempt ${attempt}):`, response.status, response.statusText, errorText);
         
         // 4xx 에러는 재시도하지 않음
         if (response.status >= 400 && response.status < 500) {
@@ -61,7 +60,7 @@ export const getDirections = async (coordsArray, namesArray, retryCount = 3) => 
         return null;
       }
 
-      console.log('Firebase Function directions response:', {
+      console.log('Next.js API directions response:', {
         totalTime: `${(data.totalTime/60000).toFixed(1)}min`,
         totalDistance: `${(data.totalDistance/1000).toFixed(1)}km`,
         pathPoints: data.path?.length || 0,
