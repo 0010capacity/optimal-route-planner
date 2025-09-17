@@ -12,47 +12,6 @@
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
     <title>최적 경로 플래너</title>
-
-    <!-- Kakao Maps JavaScript SDK v2 - 최적화된 로딩 -->
-    <script>
-      (function() {
-        // Kakao SDK 로드 상태 추적
-        window.kakaoSdkReady = false;
-
-        // 콜백 함수 정의
-        window.initKakaoSdk = function() {
-          if (window.kakao && window.kakao.maps) {
-            try {
-              window.kakao.maps.load(() => {
-                window.kakaoSdkReady = true;
-              });
-            } catch (error) {
-              // 조용하게 처리
-            }
-          }
-        };
-
-        // SDK 동적 로드 (document.write 경고 최소화)
-        const script = document.createElement('script');
-        script.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=5be0a34292474922b240a1bd76ad518c&libraries=services&autoload=false';
-        script.async = true;
-        script.defer = true;
-
-        // 로드 이벤트
-        script.onload = function() {
-          setTimeout(window.initKakaoSdk, 100);
-        };
-
-        // head에 추가
-        document.head.appendChild(script);
-
-        // 개발 환경에서만 경고 안내 (한 번만)
-        if (window.location.hostname === 'localhost' && !window.kakaoSdkWarningShown) {
-          window.kakaoSdkWarningShown = true;
-          console.info('ℹ️ Kakao 지도 SDK: document.write 경고는 무해하며 프로덕션에서는 나타나지 않습니다.');
-        }
-      })();
-    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>

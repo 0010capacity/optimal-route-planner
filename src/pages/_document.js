@@ -22,8 +22,38 @@ export default function Document() {
         {/* Kakao Maps JavaScript SDK v2 */}
         <script
           type="text/javascript"
-          src={`//dapi.kakao.com/v2/maps/sdk.js?appkey=${process.env.NEXT_PUBLIC_KAKAO_APP_KEY || '5be0a34292474922b240a1bd76ad518c'}&libraries=services`}
+          src={`//dapi.kakao.com/v2/maps/sdk.js?appkey=${process.env.NEXT_PUBLIC_KAKAO_APP_KEY || '5be0a34292474922b240a1bd76ad518c'}&libraries=services&autoload=false`}
+          async
+          defer
         ></script>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.initKakaoSdk = function() {
+                if (window.kakao && window.kakao.maps && !window.kakaoSdkReady) {
+                  try {
+                    window.kakao.maps.load(function() {
+                      window.kakaoSdkReady = true;
+                      console.log('✅ Kakao Maps SDK loaded successfully');
+                    });
+                  } catch (error) {
+                    console.error('❌ Kakao Maps SDK initialization failed:', error);
+                  }
+                }
+              };
+
+              // SDK 로드 완료 후 초기화
+              var checkKakaoLoaded = function() {
+                if (window.kakao && window.kakao.maps) {
+                  window.initKakaoSdk();
+                } else {
+                  setTimeout(checkKakaoLoaded, 100);
+                }
+              };
+              checkKakaoLoaded();
+            `,
+          }}
+        />
       </body>
     </Html>
   );
