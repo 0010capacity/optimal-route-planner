@@ -250,7 +250,7 @@ function App() {
               <span>© 2025 최적 경로 플래너. MIT License.</span>
             </div>
             <div className="footer-version">
-              <span>Version 0.3.0</span>
+              <span>Version 1.0.0</span>
             </div>
           </div>
         </div>
