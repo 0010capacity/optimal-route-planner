@@ -1265,24 +1265,69 @@
   margin: 0 var(--spacing-small);
 }
 
-/* 모바일 페이지네이션 */
-@media (max-width: 768px) {
-  .pagination-controls {
-    flex-direction: row;
-    gap: var(--spacing-small);
-    padding: var(--spacing-small);
-    max-width: 180px;
-  }
-  
-  .pagination-button {
-    padding: 4px 6px;
-    font-size: 12px;
-    min-width: 20px;
-    height: 20px;
-  }
-  
-  .pagination-info {
-    font-size: 12px;
-    margin: 0 var(--spacing-small);
-  }
+/* 최근 검색 섹션 스타일 */
+.recent-searches-section {
+  margin-bottom: var(--spacing-medium);
+  padding: var(--spacing-medium);
+  background: var(--bg-secondary);
+  border-radius: var(--border-radius-medium);
+  border: 1px solid var(--border-color);
+}
+
+.recent-searches-section h4 {
+  margin: 0 0 var(--spacing-small) 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-large);
+  font-weight: 500;
+}
+
+.recent-searches-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.recent-search-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-small) var(--spacing-medium);
+  margin-bottom: var(--spacing-small);
+  background: var(--bg-primary);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+  transition: var(--transition);
+}
+
+.recent-search-item:hover {
+  box-shadow: var(--shadow-light);
+}
+
+.recent-search-text {
+  flex: 1;
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-small);
+}
+
+.recent-search-text:hover {
+  color: var(--primary-color);
+}
+
+.remove-recent-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 2px;
+  color: var(--danger-color);
+  transition: var(--transition);
+}
+
+.remove-recent-button:hover {
+  transform: scale(1.1);
+  color: var(--danger-hover);
 }

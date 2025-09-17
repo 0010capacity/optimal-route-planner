@@ -6,6 +6,7 @@ const SearchSection = ({
   searchResults,
   loading,
   favorites,
+  recentSearches,
   showFavorites,
   currentPage,
   itemsPerPage,
@@ -16,6 +17,8 @@ const SearchSection = ({
   onAddToFavorites,
   onRemoveFromFavorites,
   onSelectFromFavorites,
+  onSelectFromRecent,
+  onRemoveFromRecent,
   onPageChange
 }) => {
   return (
@@ -55,6 +58,36 @@ const SearchSection = ({
                     onClick={() => onRemoveFromFavorites(favorite)}
                     title="즐겨찾기에서 제거"
                     aria-label={`${favorite} 즐겨찾기에서 제거`}
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {recentSearches && recentSearches.length > 0 && (
+          <div className="recent-searches-section" role="region" aria-label="최근 검색 목록">
+            <h4>최근 검색</h4>
+            <ul className="recent-searches-list" role="list">
+              {recentSearches.map((recent, index) => (
+                <li key={index} className="recent-search-item" role="listitem">
+                  <span
+                    onClick={() => onSelectFromRecent(recent)}
+                    className="recent-search-text"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`"${recent.query}" 검색`}
+                  >
+                    <Icon name="search" size={14} />
+                    {recent.query}
+                  </span>
+                  <button
+                    className="remove-recent-button"
+                    onClick={() => onRemoveFromRecent(recent)}
+                    title="최근 검색에서 제거"
+                    aria-label={`"${recent.query}" 최근 검색에서 제거`}
                   >
                     ×
                   </button>
@@ -142,7 +175,7 @@ const SearchSection = ({
           )}
 
           {searchQuery && !loading && searchResults.length === 0 && (
-            <p className="no-results" role="status" aria-live="polite">❌ 검색 결과가 없습니다. 다른 검색어로 시도해보세요.</p>
+            <p className="no-results" role="status" aria-live="polite">검색 결과가 없습니다. 다른 검색어로 시도해보세요.</p>
           )}
         </div>
       </div>

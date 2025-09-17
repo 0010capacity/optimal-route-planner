@@ -95,6 +95,21 @@ export default async function handler(req, res) {
     const route = data.routes[0];
     const summary = route.summary;
 
+    // summary가 없는 경우 처리 (출발지와 도착지가 같은 경우 등)
+    if (!summary) {
+      console.warn('KAKAO API returned no summary, using default values');
+      return res.status(200).json({
+        totalTime: 0,
+        totalDistance: 0,
+        path: [],
+        segmentTimes: [],
+        segmentDistances: [],
+        tollFare: 0,
+        taxiFare: 0,
+        fuelPrice: 0
+      });
+    }
+
     // 경로 포인트 추출
     const path = [];
     if (route.sections) {
@@ -119,20 +134,20 @@ export default async function handler(req, res) {
     const segmentTimes = [];
     const segmentDistances = [];
 
-    if (route.sections) {
+    if (route.sections && route.sections.length > 0) {
       route.sections.forEach(section => {
-        segmentTimes.push(section.duration);
-        segmentDistances.push(section.distance);
+        segmentTimes.push(section.duration || 0);
+        segmentDistances.push(section.distance || 0);
       });
     } else {
-      // 단일 구간인 경우
-      segmentTimes.push(summary.duration);
-      segmentDistances.push(summary.distance);
+      // 단일 구간인 경우 또는 sections가 없는 경우
+      segmentTimes.push(summary.duration || 0);
+      segmentDistances.push(summary.distance || 0);
     }
 
     const result = {
-      totalTime: summary.duration,
-      totalDistance: summary.distance,
+      totalTime: summary.duration || 0,
+      totalDistance: summary.distance || 0,
       path: path,
       segmentTimes: segmentTimes,
       segmentDistances: segmentDistances,

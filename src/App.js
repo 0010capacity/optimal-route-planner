@@ -1,10 +1,11 @@
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useEffect, useRef, useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import MapSection from './components/MapSection';
 import { Icon } from './components/Icon';
 import { useSearch } from './hooks/useSearch';
 import { useMap } from './hooks/useMap';
 import { useFavorites } from './hooks/useFavorites';
+import { useRecentSearches } from './hooks/useRecentSearches';
 import { useMapMarkers } from './hooks/useMapMarkers';
 import { useAppState } from './hooks/useAppState';
 import { useRouteCalculation } from './hooks/useRouteCalculation';
@@ -85,6 +86,13 @@ function App() {
     selectFromFavorites
   } = useFavorites();
 
+  const {
+    recentSearches,
+    addRecentSearch,
+    removeRecentSearch,
+    clearRecentSearches
+  } = useRecentSearches();
+
   // Memoized geocoded locations
   const memoizedGeocodedLocations = useMemo(() => {
     return locations
@@ -108,7 +116,7 @@ function App() {
 
   // Use handlers hook
   const {
-    handleSearchResultSelect,
+    handleSearchResultSelect: baseHandleSearchResultSelect,
     handleLocationClick,
     handleOptimizeRoute,
     handleShareRoute,
@@ -130,6 +138,21 @@ function App() {
     clearSearch
   );
 
+  // Override handleSearchResultSelect to add recent search functionality
+  const handleSearchResultSelect = useCallback((result) => {
+    // Add current search query to recent searches (not the location name)
+    if (searchQuery.trim()) {
+      addRecentSearch({
+        query: searchQuery.trim(),
+        selectedLocation: result.title.replace(/<[^>]*>/g, ''),
+        address: result.roadAddress || result.address || ''
+      });
+    }
+
+    // Call the base handler
+    baseHandleSearchResultSelect(result);
+  }, [searchQuery, addRecentSearch, baseHandleSearchResultSelect]);
+
   // Handle share route (show modal)
   const handleShareRouteWithModal = () => {
     handleShareRoute();
@@ -142,9 +165,16 @@ function App() {
     setShowMapSelector(false);
   };
 
-  const handleSelectFromFavorites = (locationName) => {
-    selectFromFavorites(locationName, editingIndex, locations, updateLocation, setCurrentMode);
-  };
+  const handleSelectFromFavorites = useCallback((locationName) => {
+    setSearchQuery(locationName);
+    setCurrentPage(1); // Reset to first page
+  }, [setSearchQuery, setCurrentPage]);
+
+  // Handle selecting from recent searches - set search query instead of direct selection
+  const handleSelectFromRecent = useCallback((recentItem) => {
+    setSearchQuery(recentItem.query);
+    setCurrentPage(1); // Reset to first page
+  }, [setSearchQuery, setCurrentPage]);
 
   // Memoized items per page
   const itemsPerPage = 10;
@@ -175,6 +205,7 @@ function App() {
           searchResults={searchResults}
           loading={loading}
           favorites={favorites}
+          recentSearches={recentSearches}
           showFavorites={showFavorites}
           currentPage={currentPage}
           itemsPerPage={itemsPerPage}
@@ -185,6 +216,8 @@ function App() {
           onAddToFavorites={addToFavorites}
           onRemoveFromFavorites={removeFromFavorites}
           onSelectFromFavorites={handleSelectFromFavorites}
+          onSelectFromRecent={handleSelectFromRecent}
+          onRemoveFromRecent={removeRecentSearch}
           onPageChange={setCurrentPage}
         />
       )}
