@@ -176,8 +176,6 @@ function App() {
   const handleSearchResultSelect = useCallback((result) => {
     if (editingIndex === null) return;
 
-    console.log('📍 검색 결과 선택됨:', result.title);
-
     const locationName = result.title.replace(/<[^>]*>/g, '');
     
     // 더 robust한 좌표 검증
@@ -208,109 +206,38 @@ function App() {
       coords: coords || { lat: 37.5665, lng: 126.9780 } // 좌표가 없으면 기본 좌표 사용
     });
 
-    console.log('🔙 장소 선택 후 리스트로 돌아감 - 지도 컨트롤 복원');
     setCurrentMode('list');
     setEditingIndex(null);
     clearSearch();
 
-    // 검색 결과 마커들을 강제로 제거하고 지도 컨트롤 복원
+    // 검색 결과 선택 후 검색 결과 마커들을 제거
     if (markersRef.current && mapInstance) {
-      console.log('🧹 검색 결과 마커 강제 제거 및 지도 컨트롤 복원 시작');
-      
-      // 모든 마커를 확인하고 검색 결과 마커만 제거
       const remainingMarkers = [];
-      markersRef.current.forEach((marker, index) => {
-        if (marker) {
-          const title = marker.getTitle ? marker.getTitle() : '';
-          console.log(`🔍 마커 ${index} 확인: "${title}"`);
-          
-          if (title && /^\d+\.\s/.test(title)) {
-            // 검색 결과 마커 - 강제 제거
-            console.log(`🗑️ 검색 결과 마커 ${index} 강제 제거: ${title}`);
-            
-            // 1. 지도에서 제거
-            try {
+      markersRef.current.forEach((marker) => {
+        if (marker && marker.getTitle) {
+          const title = marker.getTitle();
+          // 검색 결과 마커 (숫자. 장소명 형식)만 제거
+          if (/^\d+\.\s/.test(title)) {
+            if (marker.setMap) {
               marker.setMap(null);
-            } catch (e) {
-              console.log('setMap null 실패:', e);
             }
-            
-            // 2. 마커 객체 속성 초기화 시도
-            try {
-              if (marker.setVisible) {
-                marker.setVisible(false);
-              }
-            } catch (e) {
-              // setVisible 에러는 무시 (이미 제거된 마커)
-            }
-            
-            // 3. 이벤트 리스너 제거
-            try {
-              if (window.kakao && window.kakao.maps && window.kakao.maps.event) {
-                window.kakao.maps.event.removeListener(marker, 'click');
-              }
-            } catch (e) {
-              console.log('이벤트 리스너 제거 실패:', e);
-            }
-            
-            // 마커 배열에 추가하지 않음 (제거)
           } else {
             // 일반 마커는 유지
-            console.log(`✅ 일반 마커 유지: ${title}`);
             remainingMarkers.push(marker);
           }
+        } else if (marker) {
+          // 타이틀이 없는 마커도 유지
+          remainingMarkers.push(marker);
         }
       });
-      
-      // 마커 배열 업데이트
       markersRef.current = remainingMarkers;
-      console.log(`🧹 검색 결과 마커 정리 완료, ${remainingMarkers.length}개 유지됨`);
+    }
 
-      // 지도 컨트롤을 다시 활성화
+    // 선택된 장소로 지도 중심 이동
+    if (coords && mapInstance) {
       setTimeout(() => {
-        if (mapInstance.setZoomable) {
-          mapInstance.setZoomable(true);
-          mapInstance.setDraggable(true);
-          console.log('🎮 지도 컨트롤 복원 완료');
-        }
-
-        // 지도를 다시 그리기 (강제 새로고침) - 더 강력한 방법
-        try {
-          // 1. 지도 레이아웃 강제 새로고침
-          if (mapInstance.relayout) {
-            mapInstance.relayout();
-          }
-          
-          // 2. 지도 중심을 살짝 이동했다가 다시 원래대로 (강제 리렌더)
-          const currentCenter = mapInstance.getCenter();
-          const tempLat = currentCenter.getLat() + 0.0001;
-          const tempLng = currentCenter.getLng() + 0.0001;
-          
-          mapInstance.setCenter(new window.kakao.maps.LatLng(tempLat, tempLng));
-          
-          setTimeout(() => {
-            mapInstance.setCenter(currentCenter);
-            console.log('🔄 지도 강제 새로고침 완료');
-            
-            // 선택된 장소로 지도 중심 이동
-            if (coords) {
-              setTimeout(() => {
-                mapInstance.setCenter(new window.kakao.maps.LatLng(coords.lat, coords.lng));
-                mapInstance.setLevel(6);
-                console.log('📍 선택된 장소로 지도 중심 이동');
-              }, 100);
-            }
-          }, 50);
-          
-        } catch (e) {
-          console.log('지도 강제 새로고침 실패:', e);
-          // 실패 시 기본 방법
-          if (coords) {
-            mapInstance.setCenter(new window.kakao.maps.LatLng(coords.lat, coords.lng));
-            mapInstance.setLevel(6);
-            console.log('📍 선택된 장소로 지도 중심 이동 (기본)');
-          }
-        }
+        mapInstance.setCenter(new window.kakao.maps.LatLng(coords.lat, coords.lng));
+        mapInstance.setLevel(6);
       }, 100);
     }
   }, [editingIndex, updateLocation, clearSearch, markersRef, mapInstance]);
@@ -447,51 +374,38 @@ function App() {
   }, [geocodedLocations]);
 
   const handleBackToList = useCallback(() => {
-    console.log('🔙 검색 화면에서 리스트로 돌아감');
     setCurrentMode('list');
     setEditingIndex(null);
     clearSearch();
 
-    // 모든 검색 결과 마커들을 강제로 제거
+    // 검색 취소 시 검색 결과 마커들을 제거
     if (markersRef.current && mapInstance) {
-      console.log('🧹 검색 취소: 모든 검색 결과 마커 강제 제거 시작');
-      
       const remainingMarkers = [];
-      markersRef.current.forEach((marker, index) => {
+      markersRef.current.forEach((marker) => {
         if (marker && marker.getTitle) {
           const title = marker.getTitle();
-          console.log(`🔍 마커 ${index} 확인: "${title}"`);
-          
+          // 검색 결과 마커 (숫자. 장소명 형식)만 제거
           if (/^\d+\.\s/.test(title)) {
-            // 검색 결과 마커 - 즉시 제거
-            console.log(`🗑️ 검색 결과 마커 ${index} 제거: ${title}`);
             if (marker.setMap) {
               marker.setMap(null);
-            }
-            // 추가로 마커 객체 자체를 무효화
-            try {
-              if (marker.setVisible) marker.setVisible(false);
-            } catch (e) {
-              console.log('마커 setVisible 실패:', e);
             }
           } else {
             // 일반 마커는 유지
             remainingMarkers.push(marker);
           }
         } else if (marker) {
-          // 타이틀이 없는 마커는 유지
+          // 타이틀이 없는 마커도 유지
           remainingMarkers.push(marker);
         }
       });
-      
       markersRef.current = remainingMarkers;
-      console.log(`🧹 검색 취소: 마커 정리 완료, ${remainingMarkers.length}개 유지됨`);
-      
-      // 지도를 다시 그리기 (강제 새로고침)
+    }
+
+    // 지도를 다시 그리기 (강제 새로고침)
+    if (mapInstance) {
       setTimeout(() => {
         if (mapInstance.relayout) {
           mapInstance.relayout();
-          console.log('🔄 검색 취소: 지도 레이아웃 새로고침');
         }
       }, 100);
     }

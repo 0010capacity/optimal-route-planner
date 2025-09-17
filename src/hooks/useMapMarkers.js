@@ -33,15 +33,8 @@ export const useMapMarkers = (mapInstance, geocodedLocations, userLocation, sear
 
   // Helper function to add waypoint markers
   const addWaypointMarkers = useCallback(() => {
-    console.log('addWaypointMarkers called with:', geocodedLocations.length, 'locations');
     geocodedLocations.forEach((loc, index) => {
-      console.log(`Location ${index}:`, loc.name, loc.coords);
-      if (!loc.coords) {
-        console.log(`Skipping location ${index} - no coords:`, loc);
-        return;
-      }
-      if (!loc.coords.lat || !loc.coords.lng) {
-        console.log(`Skipping location ${index} - invalid coords:`, loc.coords);
+      if (!loc.coords || !loc.coords.lat || !loc.coords.lng) {
         return;
       }
 
@@ -55,11 +48,8 @@ export const useMapMarkers = (mapInstance, geocodedLocations, userLocation, sear
         image: createMarkerIcon(markerColor, markerSymbol)
       });
       markersRef.current.push(marker);
-      console.log(`Added marker for ${loc.name} at (${loc.coords.lat}, ${loc.coords.lng})`);
     });
-  }, [geocodedLocations, mapInstance]);
-
-  // Helper function to add user location marker
+  }, [geocodedLocations, mapInstance]);  // Helper function to add user location marker
   const addUserLocationMarker = useCallback(() => {
     if (!userLocation) return;
 
@@ -109,19 +99,23 @@ export const useMapMarkers = (mapInstance, geocodedLocations, userLocation, sear
   useEffect(() => {
     if (!mapInstance) return;
 
-    console.log('useMapMarkers main effect triggered:', {
-      currentMode,
-      geocodedLocationsCount: geocodedLocations.length,
-      geocodedLocations: geocodedLocations.map(loc => ({ name: loc.name, hasCoords: !!loc.coords })),
-      hasPolyline: !!polylineRef.current
-    });
-
     if (currentMode === 'list') {
+      // Remove search result markers only, keep geocoded locations
       removeMarkers((marker) => marker.getTitle && /^\d+\.\s/.test(marker.getTitle()));
+
+      // Add waypoint markers for geocoded locations
+      addWaypointMarkers();
+
+      // Add user location marker
+      addUserLocationMarker();
+
+      // Display optimized route
+      displayOptimizedRoute();
+
       return;
     }
 
-    // Clear all for search mode
+    // Search mode: Clear all and rebuild
     clearAllMarkersAndPolyline();
 
     // Add waypoint markers
@@ -138,6 +132,18 @@ export const useMapMarkers = (mapInstance, geocodedLocations, userLocation, sear
   useEffect(() => {
     if (!mapInstance || currentMode !== 'search') return;
 
+    // Check if search results have actually changed
+    const currentSearchTitles = searchResults?.map(r => r.title).join(',') || '';
+    const existingSearchTitles = markersRef.current
+      .filter(marker => marker.getTitle && /^\d+\.\s/.test(marker.getTitle()))
+      .map(marker => marker.getTitle().replace(/^\d+\.\s/, ''))
+      .join(',');
+
+    // If search results haven't changed, don't recreate markers
+    if (currentSearchTitles === existingSearchTitles && searchResults?.length > 0) {
+      return;
+    }
+
     // Remove existing search result markers
     removeMarkers((marker) => marker.getTitle && /^\d+\.\s/.test(marker.getTitle()));
 
@@ -153,7 +159,7 @@ export const useMapMarkers = (mapInstance, geocodedLocations, userLocation, sear
         mapInstance.setLevel(4);
       }
 
-      // Add search result markers
+      // Add search result markers (limit to 10)
       searchResults.slice(0, 10).forEach((result, index) => {
         if (!result.y || !result.x) return;
 
