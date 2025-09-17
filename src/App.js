@@ -50,9 +50,6 @@ function App() {
   
   // 테스트용 마커 상태
   const [testMarker, setTestMarker] = useState(null);
-  
-  // 검색 결과 마커들을 별도로 관리
-  const [searchMarkers, setSearchMarkers] = useState([]);
 
   const mapRef = useRef(null);
 
@@ -171,50 +168,6 @@ function App() {
     fetchRoute();
   }, [geocodedLocations, isOptimizing]);
 
-  // 검색 결과 마커들을 모두 제거하는 함수 (테스트 방식 적용)
-  const clearAllSearchMarkers = useCallback(() => {
-    console.log('🔍 clearAllSearchMarkers 호출됨, searchMarkers 길이:', searchMarkers.length);
-    console.log('🔍 searchMarkers 배열:', searchMarkers);
-    
-    if (searchMarkers.length === 0) {
-      console.log('❌ 삭제할 검색 결과 마커가 없습니다');
-      return;
-    }
-
-    try {
-      console.log(`🗑️ 검색 결과 마커 ${searchMarkers.length}개 삭제 시작`);
-      
-      searchMarkers.forEach((marker, index) => {
-        console.log(`🔍 마커 ${index} 검사:`, marker);
-        console.log(`🔍 마커 ${index} setMap 함수:`, typeof marker?.setMap);
-        
-        if (marker && marker.setMap) {
-          console.log(`🗑️ 마커 ${index} setMap(null) 호출 전`);
-          marker.setMap(null);
-          console.log(`🗑️ 마커 ${index} setMap(null) 호출 후`);
-        } else {
-          console.log(`❌ 마커 ${index} setMap 함수 없음`);
-        }
-      });
-
-      // 상태 초기화
-      console.log('🔄 searchMarkers 상태 초기화');
-      setSearchMarkers([]);
-      
-      // 강제 새로고침
-      if (mapInstance && mapInstance.relayout) {
-        setTimeout(() => {
-          mapInstance.relayout();
-          console.log('🔄 검색 마커 삭제 후 지도 새로고침');
-        }, 100);
-      }
-      
-      console.log('✅ 모든 검색 결과 마커 삭제 완료');
-    } catch (error) {
-      console.error('❌ 검색 결과 마커 삭제 실패:', error);
-    }
-  }, [searchMarkers, mapInstance]);
-
   // 이벤트 핸들러들
   const updateLocation = useCallback((index, location) => {
     const newLocations = [...locations];
@@ -262,12 +215,110 @@ function App() {
     setEditingIndex(null);
     clearSearch();
 
-    // 새로운 방식으로 검색 결과 마커 삭제
-    clearAllSearchMarkers();
+    // 검색 결과 마커들을 강제로 제거하고 지도 컨트롤 복원
+    if (markersRef.current && mapInstance) {
+      console.log('🧹 검색 결과 마커 강제 제거 및 지도 컨트롤 복원 시작');
+      
+      // 모든 마커를 확인하고 검색 결과 마커만 제거
+      const remainingMarkers = [];
+      markersRef.current.forEach((marker, index) => {
+        if (marker) {
+          const title = marker.getTitle ? marker.getTitle() : '';
+          console.log(`🔍 마커 ${index} 확인: "${title}"`);
+          
+          if (title && /^\d+\.\s/.test(title)) {
+            // 검색 결과 마커 - 강제 제거
+            console.log(`🗑️ 검색 결과 마커 ${index} 강제 제거: ${title}`);
+            
+            // 1. 지도에서 제거
+            try {
+              marker.setMap(null);
+            } catch (e) {
+              console.log('setMap null 실패:', e);
+            }
+            
+            // 2. 마커 객체 속성 초기화 시도
+            try {
+              if (marker.setVisible) {
+                marker.setVisible(false);
+              }
+            } catch (e) {
+              // setVisible 에러는 무시 (이미 제거된 마커)
+            }
+            
+            // 3. 이벤트 리스너 제거
+            try {
+              if (window.kakao && window.kakao.maps && window.kakao.maps.event) {
+                window.kakao.maps.event.removeListener(marker, 'click');
+              }
+            } catch (e) {
+              console.log('이벤트 리스너 제거 실패:', e);
+            }
+            
+            // 마커 배열에 추가하지 않음 (제거)
+          } else {
+            // 일반 마커는 유지
+            console.log(`✅ 일반 마커 유지: ${title}`);
+            remainingMarkers.push(marker);
+          }
+        }
+      });
+      
+      // 마커 배열 업데이트
+      markersRef.current = remainingMarkers;
+      console.log(`🧹 검색 결과 마커 정리 완료, ${remainingMarkers.length}개 유지됨`);
+
+      // 지도 컨트롤을 다시 활성화
+      setTimeout(() => {
+        if (mapInstance.setZoomable) {
+          mapInstance.setZoomable(true);
+          mapInstance.setDraggable(true);
+          console.log('🎮 지도 컨트롤 복원 완료');
+        }
+
+        // 지도를 다시 그리기 (강제 새로고침) - 더 강력한 방법
+        try {
+          // 1. 지도 레이아웃 강제 새로고침
+          if (mapInstance.relayout) {
+            mapInstance.relayout();
+          }
+          
+          // 2. 지도 중심을 살짝 이동했다가 다시 원래대로 (강제 리렌더)
+          const currentCenter = mapInstance.getCenter();
+          const tempLat = currentCenter.getLat() + 0.0001;
+          const tempLng = currentCenter.getLng() + 0.0001;
+          
+          mapInstance.setCenter(new window.kakao.maps.LatLng(tempLat, tempLng));
+          
+          setTimeout(() => {
+            mapInstance.setCenter(currentCenter);
+            console.log('🔄 지도 강제 새로고침 완료');
+            
+            // 선택된 장소로 지도 중심 이동
+            if (coords) {
+              setTimeout(() => {
+                mapInstance.setCenter(new window.kakao.maps.LatLng(coords.lat, coords.lng));
+                mapInstance.setLevel(6);
+                console.log('📍 선택된 장소로 지도 중심 이동');
+              }, 100);
+            }
+          }, 50);
+          
+        } catch (e) {
+          console.log('지도 강제 새로고침 실패:', e);
+          // 실패 시 기본 방법
+          if (coords) {
+            mapInstance.setCenter(new window.kakao.maps.LatLng(coords.lat, coords.lng));
+            mapInstance.setLevel(6);
+            console.log('📍 선택된 장소로 지도 중심 이동 (기본)');
+          }
+        }
+      }, 100);
+    }
   }, [editingIndex, updateLocation, clearSearch, markersRef, mapInstance]);
 
   // Use map markers hook
-  useMapMarkers(mapInstance, geocodedLocations, userLocation, searchResults, optimizedRoute, markersRef, polylineRef, handleSearchResultSelect, moveMapToLocation, currentMode, searchMarkers, setSearchMarkers);
+  useMapMarkers(mapInstance, geocodedLocations, userLocation, searchResults, optimizedRoute, markersRef, polylineRef, handleSearchResultSelect, moveMapToLocation, currentMode);
 
   const handleLocationClick = useCallback((index) => {
     setEditingIndex(index);
@@ -403,9 +454,50 @@ function App() {
     setEditingIndex(null);
     clearSearch();
 
-    // 새로운 방식으로 검색 결과 마커 삭제
-    clearAllSearchMarkers();
-  }, [clearSearch, clearAllSearchMarkers]);
+    // 모든 검색 결과 마커들을 강제로 제거
+    if (markersRef.current && mapInstance) {
+      console.log('🧹 검색 취소: 모든 검색 결과 마커 강제 제거 시작');
+      
+      const remainingMarkers = [];
+      markersRef.current.forEach((marker, index) => {
+        if (marker && marker.getTitle) {
+          const title = marker.getTitle();
+          console.log(`🔍 마커 ${index} 확인: "${title}"`);
+          
+          if (/^\d+\.\s/.test(title)) {
+            // 검색 결과 마커 - 즉시 제거
+            console.log(`🗑️ 검색 결과 마커 ${index} 제거: ${title}`);
+            if (marker.setMap) {
+              marker.setMap(null);
+            }
+            // 추가로 마커 객체 자체를 무효화
+            try {
+              if (marker.setVisible) marker.setVisible(false);
+            } catch (e) {
+              console.log('마커 setVisible 실패:', e);
+            }
+          } else {
+            // 일반 마커는 유지
+            remainingMarkers.push(marker);
+          }
+        } else if (marker) {
+          // 타이틀이 없는 마커는 유지
+          remainingMarkers.push(marker);
+        }
+      });
+      
+      markersRef.current = remainingMarkers;
+      console.log(`🧹 검색 취소: 마커 정리 완료, ${remainingMarkers.length}개 유지됨`);
+      
+      // 지도를 다시 그리기 (강제 새로고침)
+      setTimeout(() => {
+        if (mapInstance.relayout) {
+          mapInstance.relayout();
+          console.log('🔄 검색 취소: 지도 레이아웃 새로고침');
+        }
+      }, 100);
+    }
+  }, [clearSearch, markersRef, mapInstance]);
 
   const handleSelectFromFavorites = useCallback((locationName) => {
     selectFromFavorites(locationName, editingIndex, locations, updateLocation, setCurrentMode);
