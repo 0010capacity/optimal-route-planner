@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { getDirections, shareToMap } from './api/naverApi';
+import { HybridOptimizer } from './utils/routeOptimizer';
 import MapSection from './components/MapSection';
 import { Icon } from './components/Icon';
 import { useSearch } from './hooks/useSearch';
@@ -47,9 +48,6 @@ function App() {
   const [optimizedRoute, setOptimizedRoute] = useState(null);
   const [showMapSelector, setShowMapSelector] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
-  
-  // 테스트용 마커 상태
-  const [testMarker, setTestMarker] = useState(null);
 
   const mapRef = useRef(null);
 
@@ -503,60 +501,6 @@ function App() {
     selectFromFavorites(locationName, editingIndex, locations, updateLocation, setCurrentMode);
   }, [selectFromFavorites, editingIndex, locations, updateLocation]);
 
-  // 테스트용 마커 생성
-  const createTestMarker = useCallback(() => {
-    if (!mapInstance) {
-      console.log('❌ 지도 인스턴스가 없습니다');
-      return;
-    }
-
-    // 기존 테스트 마커가 있으면 제거
-    if (testMarker) {
-      testMarker.setMap(null);
-      console.log('🗑️ 기존 테스트 마커 제거');
-    }
-
-    // 현재 지도 중심에 테스트 마커 생성
-    const center = mapInstance.getCenter();
-    const marker = new window.kakao.maps.Marker({
-      position: center,
-      map: mapInstance,
-      title: "TEST_MARKER"
-    });
-
-    setTestMarker(marker);
-    console.log('✅ 테스트 마커 생성 완료:', {
-      lat: center.getLat(),
-      lng: center.getLng()
-    });
-  }, [mapInstance, testMarker]);
-
-  // 테스트용 마커 삭제
-  const removeTestMarker = useCallback(() => {
-    if (!testMarker) {
-      console.log('❌ 삭제할 테스트 마커가 없습니다');
-      return;
-    }
-
-    try {
-      console.log('🗑️ 테스트 마커 삭제 시작');
-      testMarker.setMap(null);
-      setTestMarker(null);
-      
-      // 강제 새로고침
-      if (mapInstance && mapInstance.relayout) {
-        setTimeout(() => {
-          mapInstance.relayout();
-          console.log('🔄 테스트 마커 삭제 후 지도 새로고침');
-        }, 100);
-      }
-      
-      console.log('✅ 테스트 마커 삭제 완료');
-    } catch (error) {
-      console.error('❌ 테스트 마커 삭제 실패:', error);
-    }
-  }, [testMarker, mapInstance]);
-
   return (
     <div className="App">
       <WebVitals />
@@ -591,57 +535,6 @@ function App() {
           onPageChange={setCurrentPage}
         />
       )}
-
-      {/* 테스트용 버튼들 */}
-      <div style={{ 
-        padding: '10px 20px', 
-        backgroundColor: '#f0f0f0', 
-        margin: '10px 20px',
-        borderRadius: '8px',
-        border: '2px solid #ff6b6b'
-      }}>
-        <h4 style={{ margin: '0 0 10px 0', color: '#ff6b6b' }}>🧪 마커 삭제 테스트</h4>
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <button
-            onClick={createTestMarker}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: '#4CAF50',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-          >
-            테스트 마커 생성
-          </button>
-          <button
-            onClick={removeTestMarker}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: '#f44336',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-          >
-            테스트 마커 삭제
-          </button>
-          <span style={{ 
-            padding: '8px 16px', 
-            backgroundColor: testMarker ? '#4CAF50' : '#ccc',
-            color: 'white',
-            borderRadius: '4px',
-            fontSize: '12px'
-          }}>
-            상태: {testMarker ? '마커 있음' : '마커 없음'}
-          </span>
-        </div>
-        <p style={{ margin: '10px 0 0 0', fontSize: '12px', color: '#666' }}>
-          현재 지도 중심에 마커를 생성하고 삭제할 수 있는지 테스트합니다.
-        </p>
-      </div>
 
       <MapSection
         mapRef={mapRef}
