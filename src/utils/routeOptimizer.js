@@ -6,6 +6,7 @@
 import getPermutations from './getPermutations.js';
 import { performanceMonitor } from './performanceMonitor.js';
 import { apiCache, generateDistanceMatrixCacheKey } from './apiCache.js';
+import { getOptimalDirections } from '../api/naverApi.js';
 
 /**
  * 좌표 기반 유클리드 거리 계산 (단위: km)
@@ -284,7 +285,7 @@ export class HybridOptimizer {
     const coordsArray = locations.map(loc => loc.coords);
     const namesArray = locations.map(loc => loc.name);
     
-    const result = await getDirections(coordsArray, namesArray, 3, onProgress);
+    const result = await getOptimalDirections(coordsArray, namesArray, 3, onProgress);
     if (result) {
       return {
         optimizedLocations: locations,
@@ -324,7 +325,7 @@ export class HybridOptimizer {
     const coordsArray = finalLocations.map(loc => loc.coords);
     const namesArray = finalLocations.map(loc => loc.name);
 
-    const finalResult = await getDirections(coordsArray, namesArray, 3, onProgress);
+    const finalResult = await getOptimalDirections(coordsArray, namesArray, 3, onProgress);
 
     return {
       optimizedLocations: finalLocations,
@@ -357,7 +358,7 @@ export class HybridOptimizer {
       const coordsArray = currentLocations.map(loc => loc.coords);
       const namesArray = currentLocations.map(loc => loc.name);
 
-      const result = await getDirections(coordsArray, namesArray, 3, onProgress);
+      const result = await getOptimalDirections(coordsArray, namesArray, 3, onProgress);
       apiCallCount++;
 
       // 진행률 업데이트
@@ -413,7 +414,7 @@ export class HybridOptimizer {
     const coordsArray = finalLocations.map(loc => loc.coords);
     const namesArray = finalLocations.map(loc => loc.name);
 
-    const finalResult = await getDirections(coordsArray, namesArray, 3, onProgress);
+    const finalResult = await getOptimalDirections(coordsArray, namesArray, 3, onProgress);
 
     return {
       optimizedLocations: finalLocations,
@@ -452,7 +453,7 @@ export class HybridOptimizer {
     const coordsArray = finalLocations.map(loc => loc.coords);
     const namesArray = finalLocations.map(loc => loc.name);
     
-    const finalResult = await getDirections(coordsArray, namesArray, 3, onProgress);
+    const finalResult = await getOptimalDirections(coordsArray, namesArray, 3, onProgress);
     
     return {
       optimizedLocations: finalLocations,
@@ -505,30 +506,91 @@ export class HybridOptimizer {
       matrix[i][i] = 0;
     }
 
-    // 상삼각 행렬만 계산하고 대칭 복사
+    // 배치 처리를 위한 경로 쌍 준비
+    const routePairs = [];
     for (let i = 0; i < n; i++) {
       for (let j = i + 1; j < n; j++) {
-        const coordsArray = [locations[i].coords, locations[j].coords];
-        const namesArray = [locations[i].name, locations[j].name];
-
-        const result = await getDirections(coordsArray, namesArray, 3, onProgress);
-        apiCallCount++;
-
-        // 진행률 업데이트
-        if (onProgress) {
-          const totalCalls = n * (n - 1) / 2; // 상삼각 행렬의 총 API 호출 수
-          onProgress(apiCallCount, totalCalls);
-        }
-
-        if (result) {
-          matrix[i][j] = result.totalTime;
-          matrix[j][i] = result.totalTime; // 대칭 복사
-        } else {
-          matrix[i][j] = Infinity;
-          matrix[j][i] = Infinity;
-        }
+        routePairs.push({
+          index: routePairs.length,
+          i: i,
+          j: j,
+          coordsArray: [locations[i].coords, locations[j].coords],
+          namesArray: [locations[i].name, locations[j].name]
+        });
       }
     }
+
+    console.log(`[RouteOptimizer] Building distance matrix with ${routePairs.length} route pairs using batch processing`);
+
+    // 배치 크기 설정 (한 번에 최대 10개씩 처리)
+    const batchSize = 10;
+    const totalBatches = Math.ceil(routePairs.length / batchSize);
+
+    for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+      const startIdx = batchIndex * batchSize;
+      const endIdx = Math.min(startIdx + batchSize, routePairs.length);
+      const currentBatch = routePairs.slice(startIdx, endIdx);
+
+      console.log(`[RouteOptimizer] Processing batch ${batchIndex + 1}/${totalBatches} (${currentBatch.length} routes)`);
+
+      // 배치로 경로 계산
+      const batchRoutesArray = currentBatch.map(pair => ({
+        coordsArray: pair.coordsArray,
+        namesArray: pair.namesArray
+      }));
+
+      const batchResult = await getOptimalDirections(batchRoutesArray, 3, (completed, total) => {
+        if (onProgress) {
+          const batchProgress = (batchIndex * batchSize + completed) / routePairs.length;
+          onProgress(Math.round(batchProgress * 100), 100);
+        }
+      });
+
+      if (batchResult && batchResult.batch && batchResult.results) {
+        // 배치 결과 처리
+        batchResult.results.forEach((result, resultIndex) => {
+          const pair = currentBatch[resultIndex];
+          apiCallCount++;
+
+          if (result.success && result.result) {
+            matrix[pair.i][pair.j] = result.result.totalTime;
+            matrix[pair.j][pair.i] = result.result.totalTime; // 대칭 복사
+          } else {
+            console.warn(`[RouteOptimizer] Failed to get directions for pair (${pair.i}, ${pair.j}):`, result.error);
+            matrix[pair.i][pair.j] = Infinity;
+            matrix[pair.j][pair.i] = Infinity;
+          }
+        });
+      } else {
+        console.error(`[RouteOptimizer] Batch processing failed for batch ${batchIndex + 1}`);
+        // 배치 실패 시 개별 처리로 폴백
+        for (const pair of currentBatch) {
+          try {
+            const result = await getOptimalDirections(pair.coordsArray, pair.namesArray, 3, onProgress);
+            apiCallCount++;
+
+            if (result) {
+              matrix[pair.i][pair.j] = result.totalTime;
+              matrix[pair.j][pair.i] = result.totalTime;
+            } else {
+              matrix[pair.i][pair.j] = Infinity;
+              matrix[pair.j][pair.i] = Infinity;
+            }
+          } catch (error) {
+            console.error(`[RouteOptimizer] Individual fallback failed for pair (${pair.i}, ${pair.j}):`, error);
+            matrix[pair.i][pair.j] = Infinity;
+            matrix[pair.j][pair.i] = Infinity;
+          }
+        }
+      }
+
+      // 배치 간 딜레이 (API 제한 방지)
+      if (batchIndex < totalBatches - 1) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+
+    console.log(`[RouteOptimizer] Distance matrix built with ${apiCallCount} API calls`);
 
     // 계산된 행렬을 캐시에 저장
     apiCache.set('distance_matrix', { locations: cacheKey }, matrix);

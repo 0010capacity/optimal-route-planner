@@ -2,14 +2,14 @@
 // 각 API별로 분리된 모듈들을 통합 관리
 
 import { searchPlaces } from './kakaoApi.js';
-import { getDirections } from './naverApi.js';
+import { getDirections, getBatchDirections, getOptimalDirections } from './naverApi.js';
 import { getDistance, isValidCoordinate, isValidCoordinateArray } from './utils.js';
 
 // Kakao Maps API
 export { searchPlaces };
 
 // NAVER Maps API
-export { getDirections };
+export { getDirections, getBatchDirections, getOptimalDirections };
 
 // 유틸리티 함수들
 export { getDistance, isValidCoordinate, isValidCoordinateArray };
@@ -21,6 +21,8 @@ const api = {
 
   // NAVER API
   getDirections,
+  getBatchDirections,
+  getOptimalDirections,
 
   // Utils
   getDistance,
