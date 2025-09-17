@@ -117,12 +117,6 @@ export const useLocations = () => {
       return;
     }
 
-    console.log('🚀 경로 최적화 시작:', {
-      장소수: geocodedLocations.length,
-      경유지수: waypointCount,
-      장소목록: geocodedLocations.map(loc => ({ 이름: loc.name, 좌표: loc.coords }))
-    });
-
     try {
       // 새로운 HybridOptimizer 사용
       const { HybridOptimizer } = await import('../utils/routeOptimizer.js');
@@ -145,12 +139,6 @@ export const useLocations = () => {
         const minutes = totalMinutes % 60;
         const timeString = hours > 0 ? `${hours}시간 ${minutes}분` : `${minutes}분`;
 
-        console.log(`✅ 경로 최적화 완료!`, {
-          알고리즘: optimizationResult.optimizationMethod,
-          API호출: optimizationResult.apiCalls,
-          '총 거리': `${(optimizationResult.routeData.totalDistance / 1000).toFixed(1)}km`,
-          '예상 시간': timeString
-        });
       } else {
         console.error('경로를 계산할 수 없습니다. 다시 시도해주세요.');
       }

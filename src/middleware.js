@@ -1,14 +1,7 @@
 import { NextResponse } from 'next/server'
 
 export function middleware(request) {
-  // API 요청 로깅
-  if (request.nextUrl.pathname.startsWith('/api/')) {
-    console.log(`[${new Date().toISOString()}] API Request:`, {
-      method: request.method,
-      url: request.nextUrl.pathname,
-      userAgent: request.headers.get('user-agent')?.substring(0, 100)
-    });
-  }
+  // API 요청 로깅은 프로덕션에서는 최소화
 
   // 지도 관련 요청에 대한 캐시 헤더 추가
   if (request.nextUrl.pathname.includes('/api/directions')) {

@@ -152,7 +152,7 @@ const LocationList = ({
   );
 
   const handleDragStart = (event) => {
-    console.log('드래그 시작:', event);
+    // 드래그 시작 이벤트 처리
   };
 
   const handleDragEnd = (event) => {
@@ -161,8 +161,6 @@ const LocationList = ({
     if (active.id !== over?.id) {
       const oldIndex = parseInt(active.id.replace('location-', ''));
       const newIndex = parseInt(over.id.replace('location-', ''));
-      
-      console.log('드래그 완료:', oldIndex, '->', newIndex);
       
       // 부모 컴포넌트에 순서 변경 알림
       if (onReorderLocations) {

@@ -64,13 +64,6 @@ export default async function handler(req, res) {
 
     const apiUrl = `https://apis-navi.kakaomobility.com/v1/directions?${params.toString()}`;
 
-    console.log('Calling KAKAO Mobility API:', {
-      origin: params.get('origin'),
-      destination: params.get('destination'),
-      waypoints: params.get('waypoints') || 'none',
-      fullUrl: apiUrl
-    });
-
     const response = await fetch(apiUrl, {
       method: 'GET',
       headers: {
@@ -155,15 +148,6 @@ export default async function handler(req, res) {
       taxiFare: summary.fare?.taxi || 0,
       fuelPrice: summary.fare?.fuel || 0
     };
-
-    console.log('KAKAO Mobility API success:', {
-      totalTime: `${(result.totalTime/60).toFixed(1)}min`,
-      totalDistance: `${(result.totalDistance/1000).toFixed(1)}km`,
-      pathPoints: result.path.length,
-      segments: result.segmentTimes.length,
-      apiResponseCode: data.code,
-      apiMessage: data.msg
-    });
 
     res.status(200).json(result);
 

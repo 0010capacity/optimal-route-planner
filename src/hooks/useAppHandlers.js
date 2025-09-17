@@ -124,29 +124,13 @@ export const useAppHandlers = (
     setIsOptimizing(true);
 
     try {
-      console.log('🚀 Starting new optimization algorithm:', {
-        totalLocations: validLocations.length,
-        waypoints: validLocations.length - 2
-      });
-
       // Use HybridOptimizer (minimize API calls)
       const result = await HybridOptimizer.optimize(validLocations, getDirections);
 
       if (result) {
         const { optimizedLocations, routeData, optimizationMethod, apiCalls, iterations } = result;
 
-        console.log('✅ Optimization completed:', {
-          method: optimizationMethod,
-          apiCalls,
-          iterations,
-          totalTime: `${(routeData.totalTime/60).toFixed(1)}min`,
-          totalDistance: `${(routeData.totalDistance/1000).toFixed(1)}km`
-        });
-
         // Update locations with optimized order
-        console.log('📍 최적화 전 locations:', locations.map(loc => loc.name));
-        console.log('📍 최적화 후 optimizedLocations:', optimizedLocations.map(loc => loc.name));
-        
         // 출발점과 도착점을 고정하고 중간 경유지만 재배열
         const startLocation = locations[0];
         const endLocation = locations[locations.length - 1];
@@ -156,8 +140,6 @@ export const useAppHandlers = (
         
         // 새로운 locations 구성: [출발점, ...최적화된 경유지, 도착점]
         const newLocations = [startLocation, ...optimizedWaypoints, endLocation];
-        
-        console.log('📍 업데이트할 newLocations:', newLocations.map(loc => loc.name));
         
         // locations 업데이트
         updateLocations(newLocations);
@@ -178,12 +160,6 @@ export const useAppHandlers = (
           'heuristic': 'Heuristic optimization'
         }[optimizationMethod] || optimizationMethod;
 
-        console.log(`✅ Route optimization completed! (${methodName})`, {
-          totalDistance: `${(routeData.totalDistance / 1000).toFixed(1)}km`,
-          estimatedTime: timeString,
-          apiCalls: `${apiCalls} calls`,
-          optimizations: iterations ? `${iterations} iterations` : 'none'
-        });
       } else {
         console.error('Unable to calculate route. Check network connection and try again.');
       }

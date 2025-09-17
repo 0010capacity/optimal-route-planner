@@ -83,8 +83,6 @@ export class NaverMapUrlGenerator {
       return null;
     }
 
-    console.log('Generating Naver Map URL for locations:', validation.validLocations);
-
     const waypoints = validation.validLocations.map((loc, index) => {
       const tm = wgs84ToTm128(loc.coords.lat, loc.coords.lng);
       const name = encodeURIComponent(loc.name || loc.address || `장소 ${index + 1}`);
@@ -94,7 +92,6 @@ export class NaverMapUrlGenerator {
     const waypointsStr = waypoints.join('/');
     const url = `https://map.naver.com/p/directions/${waypointsStr}/car?c=9.00,0,0,0,dh`;
     
-    console.log('Generated Naver Web URL:', url);
     return url;
   }
 
@@ -106,8 +103,6 @@ export class NaverMapUrlGenerator {
     if (!validation.valid) {
       return null;
     }
-
-    console.log('Generating Naver App URL for locations:', validation.validLocations);
 
     const { validLocations } = validation;
     const start = validLocations[0];
@@ -133,7 +128,6 @@ export class NaverMapUrlGenerator {
     });
 
     const url = `nmap://route/car?${params.join('&')}`;
-    console.log('Generated Naver App URL:', url);
     return url;
   }
 }
@@ -150,8 +144,6 @@ export class KakaoMapUrlGenerator {
     if (!validation.valid) {
       return null;
     }
-
-    console.log('Generating Kakao App URL for locations:', validation.validLocations);
 
     const { validLocations } = validation;
     const start = validLocations[0];
@@ -170,7 +162,6 @@ export class KakaoMapUrlGenerator {
     });
 
     const url = `kakaomap://route?${params.join('&')}`;
-    console.log('Generated Kakao App URL:', url);
     return url;
   }
 
@@ -182,8 +173,6 @@ export class KakaoMapUrlGenerator {
     if (!validation.valid) {
       return null;
     }
-
-    console.log('Generating Kakao Web URL for locations:', validation.validLocations);
 
     const { validLocations } = validation;
     const start = validLocations[0];
@@ -202,7 +191,6 @@ export class KakaoMapUrlGenerator {
     });
 
     const url = `http://m.map.kakao.com/scheme/route?${params.join('&')}`;
-    console.log('Generated Kakao Web URL:', url);
     return url;
   }
 }

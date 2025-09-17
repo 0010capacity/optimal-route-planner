@@ -66,8 +66,6 @@ export const filterByEuclideanDistance = (locations, thresholdMultiplier = 1.5) 
     }
   }
   
-  console.log(`Euclidean filtering: ${validPairs.size}/${n*(n-1)} pairs valid (threshold: ${threshold.toFixed(2)}km, avg: ${avgDist.toFixed(2)}km)`);
-  
   return { distances, validPairs, threshold, avgDist };
 };
 
@@ -111,7 +109,6 @@ export class TwoOptOptimizer {
       }
     }
 
-    console.log(`2-opt completed in ${iterations} iterations`);
     return {
       route: bestRoute,
       totalDistance: bestDistance,
@@ -233,8 +230,6 @@ export class HybridOptimizer {
       };
     }
 
-    console.log(`Starting optimization for ${locations.length} locations (${waypointCount} waypoints)`);
-
     let result = null;
     let apiCalls = 0;
     let method = '';
@@ -247,13 +242,11 @@ export class HybridOptimizer {
         apiCalls = 1;
       } else if (waypointCount <= 8) {
         // Brute Force 최적화 (완전 탐색으로 정확한 최적해 보장)
-        console.log('Using Brute Force optimization (≤8 waypoints - GUARANTEED OPTIMAL)');
         result = await HybridOptimizer.optimizeBruteForce(locations, getDirections);
         method = 'brute_force';
         apiCalls = result?.apiCalls || 0;
       } else if (waypointCount <= 10) {
         // Branch and Bound 최적화 (정확한 최적해 보장)
-        console.log('Using Branch and Bound optimization (≤10 waypoints - GUARANTEED OPTIMAL)');
         result = await HybridOptimizer.optimizeBranchAndBound(locations, getDirections);
         method = 'branch_and_bound';
         apiCalls = result?.apiCalls || 0;
@@ -307,14 +300,11 @@ export class HybridOptimizer {
   static async optimizeBranchAndBound(locations, getDirections) {
     const n = locations.length;
 
-    console.log(`Branch and Bound: Using ALL ${n} locations for guaranteed optimal solution`);
-
     // 유클리드 필터링 제거 - 최적해 보장을 위해 모든 지점 사용
     const filteredLocations = locations; // 모든 지점 사용
     const filteredN = filteredLocations.length;
 
     // 1단계: 거리 행렬 구축 (O(n²) API 호출)
-    console.log('Building complete distance matrix for Branch and Bound...');
     const distanceMatrix = await HybridOptimizer.buildDistanceMatrix(filteredLocations, getDirections);
     const apiCallsForMatrix = filteredN * (filteredN - 1) / 2; // 대칭이므로 절반만
 
@@ -353,12 +343,8 @@ export class HybridOptimizer {
     const end = locations[locations.length - 1];
     const waypoints = locations.slice(1, -1);
 
-    console.log(`Brute Force: Using ALL ${waypoints.length} waypoints for guaranteed optimal solution`);
-
     // 유클리드 필터링 제거 - 최적해 보장을 위해 모든 순열 사용
     const filteredPermutations = getPermutations(waypoints); // 모든 순열 사용
-
-    console.log(`Testing ALL ${filteredPermutations.length} permutations for guaranteed optimal solution`);
 
     let bestRoute = null;
     let bestTime = Infinity;
@@ -398,14 +384,11 @@ export class HybridOptimizer {
   static async optimizeTSPDP(locations, getDirections) {
     const n = locations.length;
 
-    console.log(`TSP DP: Using ALL ${n} locations for guaranteed optimal solution`);
-
     // 유클리드 필터링 제거 - 최적해 보장을 위해 모든 지점 사용
     const filteredLocations = locations; // 모든 지점 사용
     const filteredN = filteredLocations.length;
 
     // 1단계: 거리 행렬 구축 (O(n²) API 호출)
-    console.log('Building complete distance matrix for TSP DP...');
     const distanceMatrix = await HybridOptimizer.buildDistanceMatrix(filteredLocations, getDirections);
     const apiCallsForMatrix = filteredN * (filteredN - 1) / 2; // 대칭이므로 절반만
 
@@ -441,14 +424,11 @@ export class HybridOptimizer {
   static async optimize2Opt(locations, getDirections) {
     const n = locations.length;
 
-    console.log(`2-opt: Using ALL ${n} locations for optimization`);
-
     // 유클리드 필터링 제거 - 모든 지점 사용
     const filteredLocations = locations; // 모든 지점 사용
     const filteredN = filteredLocations.length;
 
     // 1단계: 필터링된 위치들에 대한 거리 행렬 구축
-    console.log('Building complete distance matrix for 2-opt...');
     const distanceMatrix = await HybridOptimizer.buildDistanceMatrix(filteredLocations, getDirections);
     const apiCallsForMatrix = filteredN * (filteredN - 1) / 2; // 대칭이므로 절반만
 
@@ -483,13 +463,9 @@ export class HybridOptimizer {
   static async optimizeHeuristic(locations, getDirections) {
     const n = locations.length;
 
-    console.log(`Heuristic: Using ALL ${n} locations for optimization`);
-
     // 유클리드 필터링 제거 - 모든 지점 사용
     const filteredLocations = locations; // 모든 지점 사용
     const filteredN = filteredLocations.length;
-
-    console.log('Using heuristic approach for large dataset...');
     
     // 간단한 구현: Nearest Neighbor만 사용
     const sampleSize = Math.min(filteredN, 15); // 최대 15개 지점만 샘플링
@@ -533,7 +509,6 @@ export class HybridOptimizer {
       }
     }
 
-    console.log(`Distance matrix built with ${apiCallCount} API calls`);
     return matrix;
   }
 
@@ -583,8 +558,6 @@ export class TSPOptimizer {
     const n = this.n;
     const INF = Infinity;
 
-    console.log(`TSP DP 시작: ${n}개 지점 최적화`);
-
     // DP 테이블: dp[mask][pos] = mask 집합을 방문하고 현재 pos에 있을 때의 최소 비용
     const dp = Array(1 << n).fill().map(() => Array(n).fill(INF));
     const prev = Array(1 << n).fill().map(() => Array(n).fill(-1)); // 경로 복원을 위한 이전 상태
@@ -630,8 +603,6 @@ export class TSPOptimizer {
 
     const endTime = performance.now();
     const duration = endTime - startTime;
-
-    console.log(`TSP DP 완료: ${duration.toFixed(2)}ms, ${operations} 연산, 최적 비용: ${minCost}`);
 
     return {
       route: route,
@@ -703,8 +674,6 @@ export class BranchAndBoundOptimizer {
     this.bestRoute = null;
     this.nodesExplored = 0;
 
-    console.log(`Branch and Bound 시작: ${this.n}개 지점 최적화`);
-
     // 방문하지 않은 노드들 초기화
     const unvisited = new Set();
     for (let i = 0; i < this.n; i++) {
@@ -720,7 +689,6 @@ export class BranchAndBoundOptimizer {
     const duration = endTime - startTime;
 
     if (this.bestRoute) {
-      console.log(`Branch and Bound 완료: ${duration.toFixed(2)}ms, ${this.nodesExplored} 노드 탐색, 최적 비용: ${this.bestCost}`);
       return {
         route: this.bestRoute,
         totalDistance: this.bestCost,
@@ -757,7 +725,6 @@ export class BranchAndBoundOptimizer {
       if (finalCost < this.bestCost) {
         this.bestCost = finalCost;
         this.bestRoute = [...currentRoute, endIndex];
-        console.log(`새로운 최적 경로 발견: 비용 ${finalCost}, 경로: ${this.bestRoute.join(' -> ')}`);
       }
       return;
     }
@@ -824,11 +791,6 @@ export class BranchAndBoundOptimizer {
 
     // 하한 = 현재 비용 + MST 비용 + 연결 비용 + 끝점까지 비용
     const lowerBound = currentCost + mstCost + minConnectionCost + toEndCost;
-
-    // 디버깅을 위한 로그 (작은 규모에서만)
-    if (this.n <= 6) {
-      console.log(`하한 계산: 현재비용=${currentCost}, MST=${mstCost}, 연결=${minConnectionCost}, 끝점=${toEndCost}, 총=${lowerBound}`);
-    }
 
     return lowerBound;
   }

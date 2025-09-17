@@ -23,12 +23,10 @@ export const useMapMarkers = (mapInstance, geocodedLocations, userLocation, sear
 
   // Helper function to clear all polylines
   const clearAllPolylines = useCallback(() => {
-    console.log('🧹 모든 폴리라인 제거 시도:', polylinesRef.current.length, '개');
     polylinesRef.current.forEach((polyline, index) => {
       try {
         if (polyline && typeof polyline.setMap === 'function') {
           polyline.setMap(null);
-          console.log(`✅ 폴리라인 ${index} 제거 성공`);
         }
       } catch (error) {
         console.error(`❌ 폴리라인 ${index} 제거 실패:`, error);
@@ -36,19 +34,15 @@ export const useMapMarkers = (mapInstance, geocodedLocations, userLocation, sear
     });
     polylinesRef.current = [];
     polylineRef.current = null;
-    console.log('✅ 모든 폴리라인 제거 완료');
   }, []);
 
   // Helper function to clear all markers and polylines
   const clearAllMarkersAndPolyline = useCallback(() => {
-    console.log('🧹 모든 마커와 폴리라인 제거 시작');
-    
     // 모든 마커 제거
     markersRef.current.forEach((marker, index) => {
       try {
         if (marker && marker.setMap) {
           marker.setMap(null);
-          console.log(`✅ 마커 ${index} 제거 성공`);
         }
       } catch (error) {
         console.error(`❌ 마커 ${index} 제거 실패:`, error);
@@ -58,14 +52,11 @@ export const useMapMarkers = (mapInstance, geocodedLocations, userLocation, sear
     
     // 모든 폴리라인 제거
     clearAllPolylines();
-    
-    console.log('✅ 모든 마커와 폴리라인 제거 완료');
   }, [clearAllPolylines]);
 
   // Helper function to clear route line
   const clearRouteLine = useCallback(() => {
     if (polylineRef.current && polylineRef.current.setMap) {
-      console.log('🗑️ 경로 라인 강제 제거');
       polylineRef.current.setMap(null);
       polylineRef.current = null;
     }
@@ -73,7 +64,6 @@ export const useMapMarkers = (mapInstance, geocodedLocations, userLocation, sear
 
   // geocodedLocations이 변경될 때마다 경로 라인 강제 제거
   useEffect(() => {
-    console.log('📍 geocodedLocations 변경 감지:', geocodedLocations.length, '개 지점');
     clearAllPolylines();
   }, [geocodedLocations, clearAllPolylines]);
 
@@ -112,26 +102,13 @@ export const useMapMarkers = (mapInstance, geocodedLocations, userLocation, sear
 
   // Helper function to display optimized route
   const displayOptimizedRoute = useCallback(() => {
-    console.log('🔄 displayOptimizedRoute 호출됨');
-    console.log('📊 현재 상태:', {
-      isOptimizing,
-      hasOptimizedRoute: !!optimizedRoute,
-      hasPath: !!(optimizedRoute?.path),
-      pathLength: optimizedRoute?.path?.length,
-      hasCurrentPolyline: !!polylineRef.current,
-      totalPolylines: polylinesRef.current.length
-    });
-
     // 모든 기존 폴리라인 제거
     clearAllPolylines();
 
     // 최적화 중이거나 경로가 없으면 라인을 그리지 않음
     if (isOptimizing || !optimizedRoute || !optimizedRoute.path || optimizedRoute.path.length === 0) {
-      console.log('🚫 경로 라인 표시 조건 불충족');
       return;
     }
-
-    console.log('🛣️ 새로운 경로 라인 생성 시작');
 
     try {
       const pathCoords = optimizedRoute.path.map(coord => {
@@ -147,8 +124,6 @@ export const useMapMarkers = (mapInstance, geocodedLocations, userLocation, sear
         return;
       }
 
-      console.log('📍 경로 좌표 생성됨:', pathCoords.length, '개');
-
       const polyline = new window.kakao.maps.Polyline({
         path: pathCoords,
         strokeColor: '#667eea',
@@ -162,7 +137,6 @@ export const useMapMarkers = (mapInstance, geocodedLocations, userLocation, sear
       if (polyline && typeof polyline.setMap === 'function') {
         polylineRef.current = polyline;
         polylinesRef.current.push(polyline); // 추적 배열에 추가
-        console.log('✅ 새로운 폴리라인 생성 및 설정됨 (총:', polylinesRef.current.length, '개)');
       } else {
         console.error('❌ 폴리라인 생성 실패: 유효하지 않은 객체');
       }

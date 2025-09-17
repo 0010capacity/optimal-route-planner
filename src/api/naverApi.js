@@ -108,18 +108,15 @@ export const shareToMap = (mapType, locations) => {
   
   if (MapUrlGenerator.isMobile() && urls.primaryUrl) {
     // 모바일: 앱 URL 시도 후 웹 URL로 폴백
-    console.log(`Trying ${mapType} App URL:`, urls.primaryUrl);
     window.location.href = urls.primaryUrl;
     
     if (urls.fallbackUrl) {
       setTimeout(() => {
-        console.log(`Fallback to ${mapType} web URL:`, urls.fallbackUrl);
         window.open(urls.fallbackUrl, '_blank');
       }, 2000);
     }
   } else if (urls.primaryUrl) {
     // 데스크톱: 웹 URL로 바로 이동
-    console.log(`Desktop: Using ${mapType} web URL:`, urls.primaryUrl);
     window.open(urls.primaryUrl, '_blank');
   } else {
     console.error(`Failed to generate ${mapType} URL`);
