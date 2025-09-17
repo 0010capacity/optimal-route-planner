@@ -45,6 +45,7 @@ function App() {
     currentPage,
     showMapSelector,
     isOptimizing,
+    optimizationProgress,
     locations,
     geocodedLocations,
     optimizedRoute,
@@ -55,6 +56,7 @@ function App() {
     setCurrentPage,
     setShowMapSelector,
     setIsOptimizing,
+    setOptimizationProgress,
     setGeocodedLocations,
     setOptimizedRoute,
     setDistanceMatrix,
@@ -128,8 +130,9 @@ function App() {
   // Use route calculation hook
   useRouteCalculation(memoizedGeocodedLocations, isOptimizing, setOptimizedRoute);
 
-  // Use handlers hook
+    // Use handlers hook
   const {
+    geocodeLocations,
     handleSearchResultSelect: baseHandleSearchResultSelect,
     handleLocationClick,
     handleOptimizeRoute,
@@ -149,7 +152,8 @@ function App() {
     setDistanceMatrix,
     markersRef,
     mapInstance,
-    clearSearch
+    clearSearch,
+    (progress) => setOptimizationProgress(progress)
   );
 
   // Override handleSearchResultSelect to add recent search functionality
@@ -203,6 +207,7 @@ function App() {
           onReorderLocations={reorderLocations}
           onDeleteLocation={deleteLocation}
           isOptimizing={isOptimizing}
+          optimizationProgress={optimizationProgress}
           onShareRoute={handleShareRouteWithModal}
           distanceMatrix={distanceMatrix}
           geocodedLocations={memoizedGeocodedLocations}

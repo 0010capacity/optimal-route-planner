@@ -8,6 +8,7 @@ export const useAppState = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [showMapSelector, setShowMapSelector] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
+  const [optimizationProgress, setOptimizationProgress] = useState({ current: 0, total: 0, message: '' });
 
   // LocalStorage for locations
   const [storedLocations, setStoredLocations] = useLocalStorage('routeLocations', []);
@@ -61,6 +62,7 @@ export const useAppState = () => {
     currentPage,
     showMapSelector,
     isOptimizing,
+    optimizationProgress,
     locations,
     geocodedLocations,
     optimizedRoute,
@@ -73,6 +75,7 @@ export const useAppState = () => {
     setCurrentPage,
     setShowMapSelector,
     setIsOptimizing,
+    setOptimizationProgress,
     setGeocodedLocations,
     setOptimizedRoute,
     setDistanceMatrix,

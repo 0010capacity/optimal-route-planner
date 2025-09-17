@@ -211,9 +211,10 @@ export class HybridOptimizer {
    * 경유지 수에 따른 최적 알고리즘 선택
    * @param {Array} locations - 위치 배열
    * @param {Function} getDirections - API 호출 함수
+   * @param {Function} onProgress - 진행률 콜백 함수
    * @returns {Object} 최적화 결과
    */
-  static async optimize(locations, getDirections) {
+  static async optimize(locations, getDirections, onProgress = null) {
     const operationId = `optimize_${Date.now()}`;
     performanceMonitor.startTimer(operationId);
     performanceMonitor.trackMemoryUsage('start');
@@ -238,17 +239,17 @@ export class HybridOptimizer {
     try {
       if (waypointCount <= 0) {
         // 2개 지점만 있는 경우
-        result = await HybridOptimizer.optimizeTwoPoints(locations, getDirections);
+        result = await HybridOptimizer.optimizeTwoPoints(locations, getDirections, onProgress);
         method = 'direct';
         apiCalls = 1;
       } else if (waypointCount <= 8) {
         // Brute Force 최적화 (완전 탐색으로 정확한 최적해 보장)
-        result = await HybridOptimizer.optimizeBruteForce(locations, getDirections);
+        result = await HybridOptimizer.optimizeBruteForce(locations, getDirections, onProgress);
         method = 'brute_force';
         apiCalls = result?.apiCalls || 0;
       } else if (waypointCount <= 10) {
         // Branch and Bound 최적화 (정확한 최적해 보장)
-        result = await HybridOptimizer.optimizeBranchAndBound(locations, getDirections);
+        result = await HybridOptimizer.optimizeBranchAndBound(locations, getDirections, onProgress);
         method = 'branch_and_bound';
         apiCalls = result?.apiCalls || 0;
       }
@@ -279,11 +280,11 @@ export class HybridOptimizer {
   /**
    * 2개 지점 최적화
    */
-  static async optimizeTwoPoints(locations, getDirections) {
+  static async optimizeTwoPoints(locations, getDirections, onProgress = null) {
     const coordsArray = locations.map(loc => loc.coords);
     const namesArray = locations.map(loc => loc.name);
     
-    const result = await getDirections(coordsArray, namesArray);
+    const result = await getDirections(coordsArray, namesArray, 3, onProgress);
     if (result) {
       return {
         optimizedLocations: locations,
@@ -298,7 +299,7 @@ export class HybridOptimizer {
   /**
    * Branch and Bound 최적화 (정확한 최적해 보장)
    */
-  static async optimizeBranchAndBound(locations, getDirections) {
+  static async optimizeBranchAndBound(locations, getDirections, onProgress = null) {
     const n = locations.length;
 
     // 유클리드 필터링 제거 - 최적해 보장을 위해 모든 지점 사용
@@ -306,7 +307,7 @@ export class HybridOptimizer {
     const filteredN = filteredLocations.length;
 
     // 1단계: 거리 행렬 구축 (O(n²) API 호출)
-    const distanceMatrix = await HybridOptimizer.buildDistanceMatrix(filteredLocations, getDirections);
+    const distanceMatrix = await HybridOptimizer.buildDistanceMatrix(filteredLocations, getDirections, onProgress);
     const apiCallsForMatrix = filteredN * (filteredN - 1) / 2; // 대칭이므로 절반만
 
     // 2단계: Branch and Bound 알고리즘 적용
@@ -323,7 +324,7 @@ export class HybridOptimizer {
     const coordsArray = finalLocations.map(loc => loc.coords);
     const namesArray = finalLocations.map(loc => loc.name);
 
-    const finalResult = await getDirections(coordsArray, namesArray);
+    const finalResult = await getDirections(coordsArray, namesArray, 3, onProgress);
 
     return {
       optimizedLocations: finalLocations,
@@ -339,7 +340,7 @@ export class HybridOptimizer {
   /**
    * 완전탐색 최적화 (유클리드 거리 기반 필터링 적용)
    */
-  static async optimizeBruteForce(locations, getDirections) {
+  static async optimizeBruteForce(locations, getDirections, onProgress = null) {
     const start = locations[0];
     const end = locations[locations.length - 1];
     const waypoints = locations.slice(1, -1);
@@ -356,8 +357,13 @@ export class HybridOptimizer {
       const coordsArray = currentLocations.map(loc => loc.coords);
       const namesArray = currentLocations.map(loc => loc.name);
 
-      const result = await getDirections(coordsArray, namesArray);
+      const result = await getDirections(coordsArray, namesArray, 3, onProgress);
       apiCallCount++;
+
+      // 진행률 업데이트
+      if (onProgress) {
+        onProgress(apiCallCount, filteredPermutations.length);
+      }
 
       if (result && result.totalTime < bestTime) {
         bestTime = result.totalTime;
@@ -382,7 +388,7 @@ export class HybridOptimizer {
   /**
    * TSP DP 최적화 (유클리드 거리 기반 필터링 적용)
    */
-  static async optimizeTSPDP(locations, getDirections) {
+  static async optimizeTSPDP(locations, getDirections, onProgress = null) {
     const n = locations.length;
 
     // 유클리드 필터링 제거 - 최적해 보장을 위해 모든 지점 사용
@@ -390,7 +396,7 @@ export class HybridOptimizer {
     const filteredN = filteredLocations.length;
 
     // 1단계: 거리 행렬 구축 (O(n²) API 호출)
-    const distanceMatrix = await HybridOptimizer.buildDistanceMatrix(filteredLocations, getDirections);
+    const distanceMatrix = await HybridOptimizer.buildDistanceMatrix(filteredLocations, getDirections, onProgress);
     const apiCallsForMatrix = filteredN * (filteredN - 1) / 2; // 대칭이므로 절반만
 
     // 2단계: TSP DP 알고리즘 적용
@@ -407,7 +413,7 @@ export class HybridOptimizer {
     const coordsArray = finalLocations.map(loc => loc.coords);
     const namesArray = finalLocations.map(loc => loc.name);
 
-    const finalResult = await getDirections(coordsArray, namesArray);
+    const finalResult = await getDirections(coordsArray, namesArray, 3, onProgress);
 
     return {
       optimizedLocations: finalLocations,
@@ -422,7 +428,7 @@ export class HybridOptimizer {
   /**
    * 2-opt 최적화 (유클리드 거리 기반 필터링 적용)
    */
-  static async optimize2Opt(locations, getDirections) {
+  static async optimize2Opt(locations, getDirections, onProgress = null) {
     const n = locations.length;
 
     // 유클리드 필터링 제거 - 모든 지점 사용
@@ -430,7 +436,7 @@ export class HybridOptimizer {
     const filteredN = filteredLocations.length;
 
     // 1단계: 필터링된 위치들에 대한 거리 행렬 구축
-    const distanceMatrix = await HybridOptimizer.buildDistanceMatrix(filteredLocations, getDirections);
+    const distanceMatrix = await HybridOptimizer.buildDistanceMatrix(filteredLocations, getDirections, onProgress);
     const apiCallsForMatrix = filteredN * (filteredN - 1) / 2; // 대칭이므로 절반만
 
     // 2단계: Nearest Neighbor로 초기 경로 생성
@@ -446,7 +452,7 @@ export class HybridOptimizer {
     const coordsArray = finalLocations.map(loc => loc.coords);
     const namesArray = finalLocations.map(loc => loc.name);
     
-    const finalResult = await getDirections(coordsArray, namesArray);
+    const finalResult = await getDirections(coordsArray, namesArray, 3, onProgress);
     
     return {
       optimizedLocations: finalLocations,
@@ -461,7 +467,7 @@ export class HybridOptimizer {
   /**
    * 휴리스틱 최적화 (유클리드 거리 기반 필터링 적용)
    */
-  static async optimizeHeuristic(locations, getDirections) {
+  static async optimizeHeuristic(locations, getDirections, onProgress = null) {
     const n = locations.length;
 
     // 유클리드 필터링 제거 - 모든 지점 사용
@@ -475,13 +481,13 @@ export class HybridOptimizer {
     const sampledLocations = HybridOptimizer.sampleLocations(filteredLocations, sampleSize);
     
     // 샘플에 대해 2-opt 적용
-    return await HybridOptimizer.optimize2Opt(sampledLocations, getDirections);
+    return await HybridOptimizer.optimize2Opt(sampledLocations, getDirections, onProgress);
   }
 
   /**
    * 거리 행렬 구축 (대칭성 이용하여 API 호출 최소화)
    */
-  static async buildDistanceMatrix(locations, getDirections) {
+  static async buildDistanceMatrix(locations, getDirections, onProgress = null) {
     const n = locations.length;
     const cacheKey = generateDistanceMatrixCacheKey(locations);
 
@@ -505,8 +511,14 @@ export class HybridOptimizer {
         const coordsArray = [locations[i].coords, locations[j].coords];
         const namesArray = [locations[i].name, locations[j].name];
 
-        const result = await getDirections(coordsArray, namesArray);
+        const result = await getDirections(coordsArray, namesArray, 3, onProgress);
         apiCallCount++;
+
+        // 진행률 업데이트
+        if (onProgress) {
+          const totalCalls = n * (n - 1) / 2; // 상삼각 행렬의 총 API 호출 수
+          onProgress(apiCallCount, totalCalls);
+        }
 
         if (result) {
           matrix[i][j] = result.totalTime;

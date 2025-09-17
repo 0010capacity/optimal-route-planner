@@ -8,7 +8,7 @@ const NAVER_CLIENT_ID = process.env.NEXT_PUBLIC_NAVER_CLIENT_ID;
  * 개선된 Directions API 호출 함수
  * 에러 처리와 재시도 로직 강화
  */
-export const getDirections = async (coordsArray, namesArray, retryCount = 3) => {
+export const getDirections = async (coordsArray, namesArray, retryCount = 3, onProgress = null) => {
   if (!isValidCoordinateArray(coordsArray)) {
     console.error('Invalid coordinates array:', coordsArray);
     return null;
@@ -58,6 +58,12 @@ export const getDirections = async (coordsArray, namesArray, retryCount = 3) => 
         return null;
       }
 
+      // 진행률 콜백 호출 - 클라이언트 사이드에서는 무시
+      // Firebase Functions에서는 onProgress 콜백을 처리하지 않음
+      // if (onProgress) {
+      //   onProgress();
+      // }
+
       return data;
       
     } catch (error) {
@@ -73,6 +79,13 @@ export const getDirections = async (coordsArray, namesArray, retryCount = 3) => 
   }
   
   return null;
+};
+
+// 진행률 콜백을 호출하는 헬퍼 함수
+export const callProgressCallback = (onProgress, current, total) => {
+  if (onProgress && typeof onProgress === 'function') {
+    onProgress(current, total);
+  }
 };
 
 /**

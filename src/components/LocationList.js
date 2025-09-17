@@ -103,6 +103,7 @@ const LocationList = ({
   onOptimizeRoute,
   onDeleteLocation,
   isOptimizing,
+  optimizationProgress,
   onShareRoute,
   onReorderLocations,
   distanceMatrix,
@@ -141,7 +142,7 @@ const LocationList = ({
 
   return (
     <>
-      <LoadingOverlay isOptimizing={isOptimizing} />
+      <LoadingOverlay isOptimizing={isOptimizing} optimizationProgress={optimizationProgress} />
       <div className="location-list-section">
         <DndContext
           sensors={sensors}

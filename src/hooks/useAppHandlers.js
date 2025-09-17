@@ -2,6 +2,8 @@ import { useCallback } from 'react';
 import { HybridOptimizer } from '../utils/routeOptimizer';
 import { getDirections } from '../api/naverApi';
 import { shareToMap } from '../api/naverApi';
+import getPermutations from '../utils/getPermutations';
+import { useEffect } from 'react';
 
 export const useAppHandlers = (
   editingIndex,
@@ -16,7 +18,8 @@ export const useAppHandlers = (
   setDistanceMatrix,
   markersRef,
   mapInstance,
-  clearSearch
+  clearSearch,
+  onProgressUpdate
 ) => {
   // Geocoding logic
   const geocodeLocations = useCallback(() => {
@@ -121,11 +124,51 @@ export const useAppHandlers = (
       return;
     }
 
+    // Calculate expected API calls
+    const waypointCount = validLocations.length - 2;
+    let expectedApiCalls = 0;
+    let method = '';
+
+    if (waypointCount <= 0) {
+      expectedApiCalls = 1;
+      method = '직접 계산';
+    } else if (waypointCount <= 8) {
+      // Brute force: 모든 순열에 대해 API 호출
+      const permutations = getPermutations(validLocations.slice(1, -1));
+      expectedApiCalls = permutations.length;
+      method = '완전 탐색';
+    } else if (waypointCount <= 10) {
+      // Branch and Bound: 거리 행렬 구축 + 최적 경로 1회
+      expectedApiCalls = validLocations.length * (validLocations.length - 1) / 2 + 1;
+      method = '분기 한정';
+    }
+
+    // Set optimization progress (only on client side)
+    // Temporarily disabled due to prerendering issues
+    // if (typeof window !== 'undefined') {
+    //   setOptimizationProgress({
+    //     current: 0,
+    //     total: expectedApiCalls,
+    //     message: `${method}으로 최적화 중... (예상 ${expectedApiCalls}회 API 호출)`
+    //   });
+    // }
+
     setIsOptimizing(true);
 
     try {
+      // 진행률 콜백 함수 - onProgressUpdate 콜백 사용
+      const onProgress = onProgressUpdate ? (current = 1, total = 1) => {
+        if (typeof window !== 'undefined') {
+          onProgressUpdate({
+            current,
+            total,
+            message: `${method}으로 최적화 중... (${current}/${total} API 호출 완료)`
+          });
+        }
+      } : null;
+
       // Use HybridOptimizer (minimize API calls)
-      const result = await HybridOptimizer.optimize(validLocations, getDirections);
+      const result = await HybridOptimizer.optimize(validLocations, getDirections, onProgress);
 
       if (result) {
         const { optimizedLocations, routeData, optimizationMethod, apiCalls, iterations } = result;
@@ -167,8 +210,12 @@ export const useAppHandlers = (
       console.error('❌ Route optimization error:', error);
     } finally {
       setIsOptimizing(false);
+      // Reset optimization progress
+      if (onProgressUpdate) {
+        onProgressUpdate({ current: 0, total: 0, message: '' });
+      }
     }
-  }, [geocodedLocations, locations, setOptimizedRoute, setIsOptimizing]);
+  }, [geocodedLocations, locations, setOptimizedRoute, setIsOptimizing, setDistanceMatrix, updateLocations]);
 
   const handleShareRoute = useCallback(() => {
     const validLocations = geocodedLocations.filter(loc =>
