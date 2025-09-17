@@ -6,6 +6,8 @@ const nextConfig = {
   images: {
     domains: ['naveropenapi.apigw.ntruss.com', 'dapi.kakao.com'],
     formats: ['image/webp', 'image/avif'],
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
 
   // 번들 분석 (개발 및 프로덕션 시)
@@ -14,10 +16,11 @@ const nextConfig = {
       const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
       config.plugins.push(
         new BundleAnalyzerPlugin({
-          analyzerMode: 'server',
-          openAnalyzer: false, // 브라우저 자동 열기 비활성화
-          analyzerHost: '127.0.0.1',
-          analyzerPort: 8889, // 다른 포트 사용
+          analyzerMode: 'static',
+          reportFilename: 'bundle-report.html',
+          openAnalyzer: false,
+          generateStatsFile: true,
+          statsFilename: 'stats.json',
         })
       );
       return config;

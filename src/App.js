@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
-import MapSection from './components/MapSection';
 import { Icon } from './components/Icon';
 import { useSearch } from './hooks/useSearch';
 import { useMap } from './hooks/useMap';
@@ -19,6 +18,11 @@ const LocationList = dynamic(() => import('./components/LocationList'), {
 });
 
 const SearchSection = dynamic(() => import('./components/SearchSection'), {
+  ssr: false,
+  loading: () => <div>Loading...</div>
+});
+
+const MapSection = dynamic(() => import('./components/MapSection'), {
   ssr: false,
   loading: () => <div>Loading...</div>
 });
