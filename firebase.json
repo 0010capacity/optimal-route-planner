@@ -3,7 +3,8 @@
     "source": "functions",
     "runtime": "nodejs18",
     "memory": "1GB",
-    "cpu": 1
+    "cpu": 1,
+    "region": "asia-northeast3"
   },
   "hosting": {
     "public": "out",
@@ -21,6 +22,7 @@
         "source": "**",
         "destination": "/index.html"
       }
-    ]
+    ],
+    "region": "asia-northeast3"
   }
 }

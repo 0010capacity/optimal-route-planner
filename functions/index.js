@@ -200,4 +200,4 @@ app.post('/api/directions', async (req, res) => {
 });
 
 // Firebase Functions export
-exports.api = functions.https.onRequest(app);
+exports.api = functions.region('asia-northeast3').https.onRequest(app);
