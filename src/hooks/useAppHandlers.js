@@ -1,0 +1,262 @@
+import { useCallback } from 'react';
+import { HybridOptimizer } from '../utils/routeOptimizer';
+import { getDirections } from '../api/naverApi';
+import { shareToMap } from '../api/naverApi';
+
+export const useAppHandlers = (
+  editingIndex,
+  locations,
+  geocodedLocations,
+  updateLocation,
+  setCurrentMode,
+  setEditingIndex,
+  setOptimizedRoute,
+  setIsOptimizing,
+  markersRef,
+  mapInstance,
+  clearSearch
+) => {
+  // Geocoding logic
+  const geocodeLocations = useCallback(() => {
+    const geocoded = [];
+    for (const loc of locations) {
+      // Skip empty names
+      if (!loc.name || loc.name.trim() === '') {
+        continue;
+      }
+
+      if (loc.coords && loc.coords.lat && loc.coords.lng) {
+        geocoded.push({ name: loc.name, coords: loc.coords });
+      }
+      // Skip locations without coords (already provided by Kakao search)
+    }
+    return geocoded;
+  }, [locations]);
+
+  const handleSearchResultSelect = useCallback((result) => {
+    if (editingIndex === null) return;
+
+    const locationName = result.title.replace(/<[^>]*>/g, '');
+
+    // Robust coordinate validation
+    const validateAndParseCoords = (x, y) => {
+      if (!x || !y) return null;
+
+      const xStr = String(x).trim();
+      const yStr = String(y).trim();
+
+      if (!xStr || !yStr || xStr === '' || yStr === '') return null;
+
+      const lat = parseFloat(yStr);
+      const lng = parseFloat(xStr);
+
+      // Validate coordinate range (South Korea)
+      if (isNaN(lat) || isNaN(lng)) return null;
+      if (lat < 33 || lat > 39 || lng < 124 || lng > 132) return null;
+
+      return { lat, lng };
+    };
+
+    const coords = validateAndParseCoords(result.x, result.y);
+
+    updateLocation(editingIndex, {
+      name: locationName,
+      address: result.roadAddress || result.address || locationName,
+      coords: coords || { lat: 37.5665, lng: 126.9780 } // Use default coords if none
+    });
+
+    setCurrentMode('list');
+    setEditingIndex(null);
+    clearSearch();
+
+    // Remove search result markers after selection
+    if (markersRef.current && mapInstance) {
+      const remainingMarkers = [];
+      markersRef.current.forEach((marker) => {
+        if (marker && marker.getTitle) {
+          const title = marker.getTitle();
+          // Remove search result markers (numbered format)
+          if (/^\d+\.\s/.test(title)) {
+            if (marker.setMap) {
+              marker.setMap(null);
+            }
+          } else {
+            // Keep other markers
+            remainingMarkers.push(marker);
+          }
+        } else if (marker) {
+          // Keep markers without title
+          remainingMarkers.push(marker);
+        }
+      });
+      markersRef.current = remainingMarkers;
+    }
+
+    // Move map to selected location
+    if (coords && mapInstance) {
+      setTimeout(() => {
+        mapInstance.setCenter(new window.kakao.maps.LatLng(coords.lat, coords.lng));
+        mapInstance.setLevel(6);
+      }, 100);
+    }
+  }, [editingIndex, updateLocation, setCurrentMode, setEditingIndex, clearSearch, markersRef, mapInstance]);
+
+  const handleLocationClick = useCallback((index) => {
+    setEditingIndex(index);
+    setCurrentMode('search');
+    clearSearch();
+  }, [setEditingIndex, setCurrentMode, clearSearch]);
+
+  const handleOptimizeRoute = useCallback(async () => {
+    // Filter locations with valid coordinates
+    const validLocations = geocodedLocations.filter(loc =>
+      loc.coords && loc.coords.lat && loc.coords.lng &&
+      !isNaN(loc.coords.lat) && !isNaN(loc.coords.lng)
+    );
+
+    if (validLocations.length < 2) {
+      console.warn(`Need at least two valid locations. Currently: ${validLocations.length}`);
+      return;
+    }
+
+    setIsOptimizing(true);
+
+    try {
+      console.log('🚀 Starting new optimization algorithm:', {
+        totalLocations: validLocations.length,
+        waypoints: validLocations.length - 2
+      });
+
+      // Use HybridOptimizer (minimize API calls)
+      const result = await HybridOptimizer.optimize(validLocations, getDirections);
+
+      if (result) {
+        const { optimizedLocations, routeData, optimizationMethod, apiCalls, iterations } = result;
+
+        console.log('✅ Optimization completed:', {
+          method: optimizationMethod,
+          apiCalls,
+          iterations,
+          totalTime: `${(routeData.totalTime/60000).toFixed(1)}min`,
+          totalDistance: `${(routeData.totalDistance/1000).toFixed(1)}km`
+        });
+
+        // Update locations with optimized order
+        locations.splice(0, locations.length, ...optimizedLocations);
+        setOptimizedRoute({
+          ...routeData,
+          order: optimizedLocations.map((_, index) => index),
+          optimizationStats: {
+            method: optimizationMethod,
+            apiCalls,
+            iterations: iterations || 0
+          }
+        });
+
+        // Log results (console only)
+        const totalMinutes = Math.round(routeData.totalTime / 60000);
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        const timeString = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+
+        const methodName = {
+          'direct': 'Direct calculation',
+          'brute_force': 'Brute force',
+          '2-opt': '2-opt optimization',
+          'heuristic': 'Heuristic optimization'
+        }[optimizationMethod] || optimizationMethod;
+
+        console.log(`✅ Route optimization completed! (${methodName})`, {
+          totalDistance: `${(routeData.totalDistance / 1000).toFixed(1)}km`,
+          estimatedTime: timeString,
+          apiCalls: `${apiCalls} calls`,
+          optimizations: iterations ? `${iterations} iterations` : 'none'
+        });
+      } else {
+        console.error('Unable to calculate route. Check network connection and try again.');
+      }
+    } catch (error) {
+      console.error('❌ Route optimization error:', error);
+    } finally {
+      setIsOptimizing(false);
+    }
+  }, [geocodedLocations, locations, setOptimizedRoute, setIsOptimizing]);
+
+  const handleShareRoute = useCallback(() => {
+    const validLocations = geocodedLocations.filter(loc =>
+      loc.coords && loc.coords.lat && loc.coords.lng &&
+      !isNaN(loc.coords.lat) && !isNaN(loc.coords.lng)
+    );
+
+    if (validLocations.length < 2) {
+      console.warn('Map sharing: Need at least two valid locations.');
+      return;
+    }
+
+    // Show map selector modal
+    // This will be handled in the component
+  }, [geocodedLocations]);
+
+  const handleMapSelect = useCallback((mapType) => {
+    const validLocations = geocodedLocations.filter(loc =>
+      loc.coords && loc.coords.lat && loc.coords.lng &&
+      !isNaN(loc.coords.lat) && !isNaN(loc.coords.lng)
+    );
+
+    if (validLocations.length < 2) {
+      console.warn('Map selection: Need at least two valid locations.');
+      return;
+    }
+
+    // Use integrated map sharing function
+    shareToMap(mapType, validLocations);
+  }, [geocodedLocations]);
+
+  const handleBackToList = useCallback(() => {
+    setCurrentMode('list');
+    setEditingIndex(null);
+    clearSearch();
+
+    // Remove search result markers on back
+    if (markersRef.current && mapInstance) {
+      const remainingMarkers = [];
+      markersRef.current.forEach((marker) => {
+        if (marker && marker.getTitle) {
+          const title = marker.getTitle();
+          // Remove search result markers (numbered format)
+          if (/^\d+\.\s/.test(title)) {
+            if (marker.setMap) {
+              marker.setMap(null);
+            }
+          } else {
+            // Keep other markers
+            remainingMarkers.push(marker);
+          }
+        } else if (marker) {
+          // Keep markers without title
+          remainingMarkers.push(marker);
+        }
+      });
+      markersRef.current = remainingMarkers;
+    }
+
+    // Redraw map (force refresh)
+    if (mapInstance) {
+      setTimeout(() => {
+        if (mapInstance.relayout) {
+          mapInstance.relayout();
+        }
+      }, 100);
+    }
+  }, [setCurrentMode, setEditingIndex, clearSearch, markersRef, mapInstance]);
+
+  return {
+    geocodeLocations,
+    handleSearchResultSelect,
+    handleLocationClick,
+    handleOptimizeRoute,
+    handleShareRoute,
+    handleMapSelect,
+    handleBackToList,
+  };
+};

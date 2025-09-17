@@ -1,7 +1,10 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useMemo } from 'react';
 import { getMarkerColor, getMarkerSymbol, createMarkerIcon, createUserLocationIcon, createSearchMarkerIcon } from '../utils/mapUtils';
 
 export const useMapMarkers = (mapInstance, geocodedLocations, userLocation, searchResults, optimizedRoute, markersRef, polylineRef, handleSearchResultSelect, moveMapToLocation, currentMode) => {
+  // Memoize marker removal condition
+  const searchMarkerCondition = useCallback((marker) => marker.getTitle && /^\d+\.\s/.test(marker.getTitle()), []);
+
   // Helper function to remove markers by condition
   const removeMarkers = useCallback((condition) => {
     const originalCount = markersRef.current.length;
@@ -49,7 +52,9 @@ export const useMapMarkers = (mapInstance, geocodedLocations, userLocation, sear
       });
       markersRef.current.push(marker);
     });
-  }, [geocodedLocations, mapInstance]);  // Helper function to add user location marker
+  }, [geocodedLocations, mapInstance]);
+
+  // Helper function to add user location marker
   const addUserLocationMarker = useCallback(() => {
     if (!userLocation) return;
 
@@ -95,13 +100,19 @@ export const useMapMarkers = (mapInstance, geocodedLocations, userLocation, sear
     }
   }, [optimizedRoute, mapInstance]);
 
-  // Main marker and route management (triggers on currentMode change)
+  // Memoize search results titles for comparison
+  const currentSearchTitles = useMemo(() =>
+    searchResults?.map(r => r.title).join(',') || '',
+    [searchResults]
+  );
+
+  // Combined effect for marker and route management
   useEffect(() => {
     if (!mapInstance) return;
 
     if (currentMode === 'list') {
       // Remove search result markers only, keep geocoded locations
-      removeMarkers((marker) => marker.getTitle && /^\d+\.\s/.test(marker.getTitle()));
+      removeMarkers(searchMarkerCondition);
 
       // Add waypoint markers for geocoded locations
       addWaypointMarkers();
@@ -126,14 +137,13 @@ export const useMapMarkers = (mapInstance, geocodedLocations, userLocation, sear
 
     // Display optimized route
     displayOptimizedRoute();
-  }, [mapInstance, geocodedLocations, userLocation, optimizedRoute, currentMode, removeMarkers, clearAllMarkersAndPolyline, addWaypointMarkers, addUserLocationMarker, displayOptimizedRoute]);
+  }, [mapInstance, geocodedLocations, userLocation, optimizedRoute, currentMode, removeMarkers, clearAllMarkersAndPolyline, addWaypointMarkers, addUserLocationMarker, displayOptimizedRoute, searchMarkerCondition]);
 
-  // Search result markers management (triggers on searchResults change)
+  // Search result markers management
   useEffect(() => {
     if (!mapInstance || currentMode !== 'search') return;
 
     // Check if search results have actually changed
-    const currentSearchTitles = searchResults?.map(r => r.title).join(',') || '';
     const existingSearchTitles = markersRef.current
       .filter(marker => marker.getTitle && /^\d+\.\s/.test(marker.getTitle()))
       .map(marker => marker.getTitle().replace(/^\d+\.\s/, ''))
@@ -145,7 +155,7 @@ export const useMapMarkers = (mapInstance, geocodedLocations, userLocation, sear
     }
 
     // Remove existing search result markers
-    removeMarkers((marker) => marker.getTitle && /^\d+\.\s/.test(marker.getTitle()));
+    removeMarkers(searchMarkerCondition);
 
     if (searchResults && searchResults.length > 0) {
       // Move map to first result
@@ -184,5 +194,5 @@ export const useMapMarkers = (mapInstance, geocodedLocations, userLocation, sear
         markersRef.current.push(searchMarker);
       });
     }
-  }, [searchResults, mapInstance, currentMode, handleSearchResultSelect, moveMapToLocation, removeMarkers]);
+  }, [searchResults, mapInstance, currentMode, handleSearchResultSelect, moveMapToLocation, removeMarkers, searchMarkerCondition, currentSearchTitles]);
 };
