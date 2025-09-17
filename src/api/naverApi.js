@@ -9,6 +9,9 @@ const NAVER_CLIENT_ID = process.env.NEXT_PUBLIC_NAVER_CLIENT_ID;
  * 에러 처리와 재시도 로직 강화
  */
 export const getDirections = async (coordsArray, namesArray, retryCount = 3, onProgress = null) => {
+  const startTime = Date.now();
+  console.log(`[Client] Starting directions API call for ${coordsArray.length} locations`);
+
   if (!isValidCoordinateArray(coordsArray)) {
     console.error('Invalid coordinates array:', coordsArray);
     return null;
@@ -18,6 +21,9 @@ export const getDirections = async (coordsArray, namesArray, retryCount = 3, onP
   
   for (let attempt = 1; attempt <= retryCount; attempt++) {
     try {
+      console.log(`[Client] Attempt ${attempt}/${retryCount} - Calling Firebase Functions`);
+
+      const fetchStartTime = Date.now();
       const response = await fetch(nextJsUrl, {
         method: 'POST',
         headers: {
@@ -29,6 +35,9 @@ export const getDirections = async (coordsArray, namesArray, retryCount = 3, onP
         }),
         timeout: 10000 // 10초 타임아웃
       });
+      const fetchEndTime = Date.now();
+      const fetchDuration = fetchEndTime - fetchStartTime;
+      console.log(`[Client] Firebase Functions response time: ${fetchDuration}ms`);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -48,6 +57,9 @@ export const getDirections = async (coordsArray, namesArray, retryCount = 3, onP
       }
 
       const data = await response.json();
+      const endTime = Date.now();
+      const totalDuration = endTime - startTime;
+      console.log(`[Client] Total API call completed in ${totalDuration}ms`);
       
       // 응답 데이터 유효성 검증
       if (!data || typeof data.totalTime !== 'number' || typeof data.totalDistance !== 'number') {

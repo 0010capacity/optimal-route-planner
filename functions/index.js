@@ -40,15 +40,20 @@ const isValidCoordinateArray = (coordsArray) => {
  * Directions API Route
  */
 app.post('/api/directions', async (req, res) => {
+  const startTime = Date.now();
+  console.log(`[${new Date().toISOString()}] Directions API called`);
+
   try {
     const { coordsArray, namesArray } = req.body;
 
     // 입력 검증
     if (!coordsArray || !Array.isArray(coordsArray) || coordsArray.length < 2) {
+      console.log(`[${new Date().toISOString()}] Invalid coordinates array:`, coordsArray);
       return res.status(400).json({ error: 'Invalid coordinates array' });
     }
 
     if (!isValidCoordinateArray(coordsArray)) {
+      console.log(`[${new Date().toISOString()}] Invalid coordinate format:`, coordsArray);
       return res.status(400).json({ error: 'Invalid coordinate format' });
     }
 
@@ -58,6 +63,8 @@ app.post('/api/directions', async (req, res) => {
       console.error('KAKAO_REST_API_KEY not configured');
       return res.status(500).json({ error: 'API configuration error' });
     }
+
+    console.log(`[${new Date().toISOString()}] Processing ${coordsArray.length} locations`);
 
     // 카카오 모빌리티 API 요청 준비
     const start = coordsArray[0];
@@ -82,7 +89,9 @@ app.post('/api/directions', async (req, res) => {
     }
 
     const apiUrl = `https://apis-navi.kakaomobility.com/v1/directions?${params.toString()}`;
+    console.log(`[${new Date().toISOString()}] Calling Kakao API: ${apiUrl.substring(0, 100)}...`);
 
+    const kakaoStartTime = Date.now();
     const response = await fetch(apiUrl, {
       method: 'GET',
       headers: {
@@ -90,17 +99,22 @@ app.post('/api/directions', async (req, res) => {
         'Content-Type': 'application/json'
       }
     });
+    const kakaoEndTime = Date.now();
+    const kakaoDuration = kakaoEndTime - kakaoStartTime;
+    console.log(`[${new Date().toISOString()}] Kakao API response time: ${kakaoDuration}ms`);
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('KAKAO API error:', response.status, errorText);
+      console.error(`[${new Date().toISOString()}] KAKAO API error:`, response.status, errorText);
       return res.status(response.status).json({ error: 'KAKAO API error' });
     }
 
     const data = await response.json();
+    console.log(`[${new Date().toISOString()}] Kakao API response received, processing data...`);
 
     // 카카오 API 응답을 기존 포맷으로 변환
     if (!data.routes || !data.routes[0]) {
+      console.error(`[${new Date().toISOString()}] Invalid KAKAO API response - no routes found`);
       return res.status(500).json({ error: 'Invalid KAKAO API response - no routes found' });
     }
 
@@ -109,7 +123,10 @@ app.post('/api/directions', async (req, res) => {
 
     // summary가 없는 경우 처리 (출발지와 도착지가 같은 경우 등)
     if (!summary) {
-      console.warn('KAKAO API returned no summary, using default values');
+      console.warn(`[${new Date().toISOString()}] KAKAO API returned no summary, using default values`);
+      const endTime = Date.now();
+      const totalDuration = endTime - startTime;
+      console.log(`[${new Date().toISOString()}] Total processing time: ${totalDuration}ms`);
       return res.status(200).json({
         totalTime: 0,
         totalDistance: 0,
@@ -168,10 +185,16 @@ app.post('/api/directions', async (req, res) => {
       fuelPrice: summary.fare?.fuel || 0
     };
 
+    const endTime = Date.now();
+    const totalDuration = endTime - startTime;
+    console.log(`[${new Date().toISOString()}] Directions API completed in ${totalDuration}ms`);
+
     res.status(200).json(result);
 
   } catch (error) {
-    console.error('Directions API error:', error);
+    const endTime = Date.now();
+    const totalDuration = endTime - startTime;
+    console.error(`[${new Date().toISOString()}] Directions API error after ${totalDuration}ms:`, error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

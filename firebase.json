@@ -1,6 +1,9 @@
 {
   "functions": {
-    "source": "functions"
+    "source": "functions",
+    "runtime": "nodejs18",
+    "memory": "1GB",
+    "cpu": 1
   },
   "hosting": {
     "public": "out",
