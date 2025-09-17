@@ -39,7 +39,7 @@ const isValidCoordinateArray = (coordsArray) => {
 /**
  * Directions API Route
  */
-app.post('/directions', async (req, res) => {
+app.post('/api/directions', async (req, res) => {
   try {
     const { coordsArray, namesArray } = req.body;
 

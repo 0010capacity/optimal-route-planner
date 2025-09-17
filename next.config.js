@@ -2,6 +2,9 @@
 const nextConfig = {
   reactStrictMode: true,
 
+  // Static export for Firebase Hosting
+  output: 'export',
+
   // 이미지 최적화 설정
   images: {
     domains: ['naveropenapi.apigw.ntruss.com', 'dapi.kakao.com'],
