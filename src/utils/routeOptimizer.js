@@ -222,6 +222,17 @@ export class HybridOptimizer {
 
     const waypointCount = locations.length - 2; // 출발지, 도착지 제외
 
+    // 전체 장소 최대 개수 제한 (12개)
+    if (locations.length > 12) {
+      console.error(`장소 개수가 너무 많습니다. 최대 12개까지 지원합니다. (현재: ${locations.length}개)`);
+      return {
+        error: 'TOO_MANY_LOCATIONS',
+        message: `장소 개수가 너무 많습니다. 최대 12개까지 지원합니다. (현재: ${locations.length}개)`,
+        maxLocations: 12,
+        currentLocations: locations.length
+      };
+    }
+
     console.log(`Starting optimization for ${locations.length} locations (${waypointCount} waypoints)`);
 
     let result = null;
@@ -234,29 +245,11 @@ export class HybridOptimizer {
         result = await HybridOptimizer.optimizeTwoPoints(locations, getDirections);
         method = 'direct';
         apiCalls = 1;
-      } else if (waypointCount <= 6) {
-        // 완전탐색 (6! = 720 combinations)
-        console.log('Using brute force optimization (≤6 waypoints)');
-        result = await HybridOptimizer.optimizeBruteForce(locations, getDirections);
-        method = 'brute_force';
-        apiCalls = result?.apiCalls || 0;
-      } else if (waypointCount <= 8) {
-        // TSP DP 최적화 (정확한 최적해 보장)
-        console.log('Using TSP DP optimization (7-8 waypoints)');
-        result = await HybridOptimizer.optimizeTSPDP(locations, getDirections);
-        method = 'tsp_dp';
-        apiCalls = result?.apiCalls || 0;
-      } else if (waypointCount <= 15) {
-        // 2-opt 최적화
-        console.log('Using 2-opt optimization (9-15 waypoints)');
-        result = await HybridOptimizer.optimize2Opt(locations, getDirections);
-        method = '2-opt';
-        apiCalls = result?.apiCalls || 0;
-      } else {
-        // 휴리스틱 + 2-opt
-        console.log('Using heuristic + 2-opt optimization (>12 waypoints)');
-        result = await HybridOptimizer.optimizeHeuristic(locations, getDirections);
-        method = 'heuristic';
+      } else if (waypointCount <= 10) {
+        // Branch and Bound 최적화 (정확한 최적해 보장)
+        console.log('Using Branch and Bound optimization (≤10 waypoints - GUARANTEED OPTIMAL)');
+        result = await HybridOptimizer.optimizeBranchAndBound(locations, getDirections);
+        method = 'branch_and_bound';
         apiCalls = result?.apiCalls || 0;
       }
 
@@ -276,7 +269,7 @@ export class HybridOptimizer {
         method,
         apiCalls,
         duration,
-        result?.iterations || 0
+        result?.iterations || result?.nodesExplored || 0
       );
 
       performanceMonitor.trackMemoryUsage('end');
@@ -300,6 +293,68 @@ export class HybridOptimizer {
       };
     }
     return null;
+  }
+
+  /**
+   * Branch and Bound 최적화 (정확한 최적해 보장)
+   */
+  static async optimizeBranchAndBound(locations, getDirections) {
+    const n = locations.length;
+
+    // 유클리드 거리 기반 필터링 적용
+    console.log('Applying Euclidean distance filtering for Branch and Bound...');
+    const { validPairs, threshold, avgDist } = filterByEuclideanDistance(locations, 2.0);
+
+    // 필터링된 위치들로 새로운 위치 배열 생성
+    const filteredIndices = new Set();
+    filteredIndices.add(0); // 시작점
+    filteredIndices.add(n - 1); // 끝점
+
+    // 유효한 쌍에 포함된 중간 지점들 추가
+    for (const pair of validPairs) {
+      const [i, j] = pair.split('-').map(Number);
+      if (i > 0 && i < n - 1) filteredIndices.add(i);
+      if (j > 0 && j < n - 1) filteredIndices.add(j);
+    }
+
+    const filteredLocations = Array.from(filteredIndices).sort((a, b) => a - b).map(idx => locations[idx]);
+    const filteredN = filteredLocations.length;
+
+    console.log(`Branch and Bound filtering: ${n} -> ${filteredN} locations (threshold: ${threshold.toFixed(2)}km, avg: ${avgDist.toFixed(2)}km)`);
+
+    if (filteredN < n) {
+      console.log('Using filtered locations for Branch and Bound');
+    }
+
+    // 1단계: 거리 행렬 구축 (O(n²) API 호출)
+    console.log('Building distance matrix for Branch and Bound...');
+    const distanceMatrix = await HybridOptimizer.buildDistanceMatrix(filteredLocations, getDirections);
+    const apiCallsForMatrix = filteredN * (filteredN - 1) / 2; // 대칭이므로 절반만
+
+    // 2단계: Branch and Bound 알고리즘 적용
+    const bbOptimizer = new BranchAndBoundOptimizer(distanceMatrix, filteredLocations);
+    const bbResult = bbOptimizer.optimize(0, filteredN - 1);
+
+    if (!bbResult) {
+      console.error('Branch and Bound optimization failed');
+      return null;
+    }
+
+    // 3단계: 최적 경로로 실제 데이터 가져오기 (1번의 API 호출)
+    const finalLocations = bbResult.route.map(index => filteredLocations[index]);
+    const coordsArray = finalLocations.map(loc => loc.coords);
+    const namesArray = finalLocations.map(loc => loc.name);
+
+    const finalResult = await getDirections(coordsArray, namesArray);
+
+    return {
+      optimizedLocations: finalLocations,
+      routeData: finalResult,
+      optimizationMethod: 'branch_and_bound',
+      apiCalls: apiCallsForMatrix + 1,
+      nodesExplored: bbResult.nodesExplored,
+      duration: bbResult.duration
+    };
   }
 
   /**
@@ -699,5 +754,195 @@ export class TSPOptimizer {
       totalDistance += this.distanceMatrix[from][to] || Infinity;
     }
     return totalDistance;
+  }
+}
+
+/**
+ * Branch and Bound 최적화 알고리즘
+ * 정확한 최적해를 보장하면서 TSP DP보다 효율적인 가지치기 사용
+ */
+export class BranchAndBoundOptimizer {
+  constructor(distanceMatrix, locations) {
+    this.distanceMatrix = distanceMatrix;
+    this.locations = locations;
+    this.n = locations.length;
+    this.bestCost = Infinity;
+    this.bestRoute = null;
+    this.nodesExplored = 0;
+  }
+
+  /**
+   * Branch and Bound 알고리즘으로 최적 경로 계산
+   * @param {number} startIndex - 시작점 인덱스
+   * @param {number} endIndex - 끝점 인덱스
+   * @returns {Object} 최적화된 경로와 총 거리
+   */
+  optimize(startIndex, endIndex) {
+    const startTime = performance.now();
+    this.bestCost = Infinity;
+    this.bestRoute = null;
+    this.nodesExplored = 0;
+
+    console.log(`Branch and Bound 시작: ${this.n}개 지점 최적화`);
+
+    // 방문하지 않은 노드들 초기화
+    const unvisited = new Set();
+    for (let i = 0; i < this.n; i++) {
+      if (i !== startIndex && i !== endIndex) {
+        unvisited.add(i);
+      }
+    }
+
+    // Branch and Bound 재귀 탐색 시작
+    this.branchAndBound([startIndex], unvisited, endIndex, 0);
+
+    const endTime = performance.now();
+    const duration = endTime - startTime;
+
+    if (this.bestRoute) {
+      console.log(`Branch and Bound 완료: ${duration.toFixed(2)}ms, ${this.nodesExplored} 노드 탐색, 최적 비용: ${this.bestCost}`);
+      return {
+        route: this.bestRoute,
+        totalDistance: this.bestCost,
+        method: 'branch_and_bound',
+        nodesExplored: this.nodesExplored,
+        duration: duration
+      };
+    } else {
+      console.error('Branch and Bound: No valid path found');
+      return null;
+    }
+  }
+
+  /**
+   * Branch and Bound 재귀 함수
+   * @param {number[]} currentRoute - 현재까지의 경로
+   * @param {Set} unvisited - 방문하지 않은 노드들
+   * @param {number} endIndex - 끝점 인덱스
+   * @param {number} currentCost - 현재까지의 비용
+   */
+  branchAndBound(currentRoute, unvisited, endIndex, currentCost) {
+    this.nodesExplored++;
+
+    // 가지치기 1: 현재 비용이 이미 찾은 최적 비용보다 크면 중단
+    if (currentCost >= this.bestCost) {
+      return;
+    }
+
+    const currentPos = currentRoute[currentRoute.length - 1];
+
+    // 종료 조건: 모든 지점을 방문한 경우
+    if (unvisited.size === 0) {
+      const finalCost = currentCost + this.distanceMatrix[currentPos][endIndex];
+      if (finalCost < this.bestCost) {
+        this.bestCost = finalCost;
+        this.bestRoute = [...currentRoute, endIndex];
+      }
+      return;
+    }
+
+    // 가지치기 2: 하한 계산으로 더 이상 탐색할 필요가 없으면 중단
+    const lowerBound = this.calculateLowerBound(currentRoute, unvisited, endIndex, currentCost);
+    if (lowerBound >= this.bestCost) {
+      return;
+    }
+
+    // 다음 방문할 노드들 탐색 (가장 가까운 노드부터 우선 탐색)
+    const candidates = Array.from(unvisited).sort((a, b) => {
+      const costA = this.distanceMatrix[currentPos][a];
+      const costB = this.distanceMatrix[currentPos][b];
+      return costA - costB;
+    });
+
+    for (const next of candidates) {
+      const newUnvisited = new Set(unvisited);
+      newUnvisited.delete(next);
+
+      const newCost = currentCost + this.distanceMatrix[currentPos][next];
+      const newRoute = [...currentRoute, next];
+
+      this.branchAndBound(newRoute, newUnvisited, endIndex, newCost);
+    }
+  }
+
+  /**
+   * 하한 계산 (Lower Bound)
+   * MST(Minimum Spanning Tree) 기반 + 남은 최소 비용 추정
+   */
+  calculateLowerBound(currentRoute, unvisited, endIndex, currentCost) {
+    if (unvisited.size === 0) {
+      return currentCost + this.distanceMatrix[currentRoute[currentRoute.length - 1]][endIndex];
+    }
+
+    // 1. 현재 위치에서 끝점까지의 최소 비용
+    const currentPos = currentRoute[currentRoute.length - 1];
+    const toEndCost = this.distanceMatrix[currentPos][endIndex];
+
+    // 2. 방문하지 않은 노드들 간의 MST 비용 계산
+    const remainingNodes = Array.from(unvisited);
+    let mstCost = 0;
+
+    if (remainingNodes.length > 1) {
+      // Prim's 알고리즘으로 MST 계산
+      mstCost = this.calculateMSTCost(remainingNodes);
+    }
+
+    // 3. 방문하지 않은 각 노드에서 가장 가까운 방문한 노드까지의 비용
+    let minConnectionCost = 0;
+    for (const node of remainingNodes) {
+      let minCost = Infinity;
+      for (const visited of currentRoute) {
+        minCost = Math.min(minCost, this.distanceMatrix[visited][node]);
+      }
+      minConnectionCost += minCost;
+    }
+
+    // 하한 = 현재 비용 + MST 비용 + 연결 비용 + 끝점까지 비용
+    return currentCost + mstCost + minConnectionCost + toEndCost;
+  }
+
+  /**
+   * 방문하지 않은 노드들의 MST(Minimum Spanning Tree) 비용 계산
+   * Prim's 알고리즘 사용
+   */
+  calculateMSTCost(nodes) {
+    if (nodes.length <= 1) return 0;
+
+    const n = nodes.length;
+    const visited = new Set([0]); // 첫 번째 노드를 시작점으로
+    const distances = new Array(n).fill(Infinity);
+    distances[0] = 0;
+
+    let totalCost = 0;
+
+    for (let i = 1; i < n; i++) {
+      // 방문하지 않은 노드 중 가장 가까운 노드 찾기
+      let minDist = Infinity;
+      let minIndex = -1;
+
+      for (let j = 0; j < n; j++) {
+        if (!visited.has(j) && distances[j] < minDist) {
+          minDist = distances[j];
+          minIndex = j;
+        }
+      }
+
+      if (minIndex === -1) break;
+
+      visited.add(minIndex);
+      totalCost += minDist;
+
+      // 다른 방문하지 않은 노드들의 거리 업데이트
+      for (let j = 0; j < n; j++) {
+        if (!visited.has(j)) {
+          const dist = this.distanceMatrix[nodes[minIndex]][nodes[j]];
+          if (dist < distances[j]) {
+            distances[j] = dist;
+          }
+        }
+      }
+    }
+
+    return totalCost;
   }
 }

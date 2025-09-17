@@ -176,19 +176,19 @@ const LocationList = ({
         </DndContext>
         
         <button
-          className="add-location-button"
+          className={`add-location-button ${locations.length >= 12 ? 'disabled' : ''}`}
           onClick={onAddLocation}
-          disabled={isOptimizing}
+          disabled={isOptimizing || locations.length >= 12}
           aria-label="새 장소 추가"
-          title="새 장소 추가"
+          title={locations.length >= 12 ? "최대 12개 장소까지 추가할 수 있습니다" : "새 장소 추가"}
         >
           +
         </button>
         
         <button
-          className="optimize-button"
+          className={`optimize-button ${locations.length > 12 ? 'disabled' : ''}`}
           onClick={onOptimizeRoute}
-          disabled={isOptimizing || locations.length < 2 || locations.some(loc => !loc.name)}
+          disabled={isOptimizing || locations.length < 2 || locations.length > 12 || locations.some(loc => !loc.name)}
           aria-label="경로 최적화"
         >
           <Icon name="optimize" size={16} />

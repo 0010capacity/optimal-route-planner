@@ -46,10 +46,15 @@ export const useLocations = () => {
   }, [geocodedLocations]);
 
   const handleAddLocation = useCallback(() => {
+    // 전체 장소 최대 개수 제한 (12개)
+    if (locations.length >= 12) {
+      console.warn('장소 개수가 너무 많습니다. 최대 12개까지 지원합니다.');
+      alert('장소 개수가 너무 많습니다. 최대 12개까지 지원합니다.');
+      return;
+    }
+    
     setLocations([...locations, { name: '', address: '', coords: null }]);
-  }, [locations]);
-
-  const handleDeleteLocation = useCallback((index) => {
+  }, [locations]);  const handleDeleteLocation = useCallback((index) => {
     const newLocations = locations.filter((_, i) => i !== index);
     setLocations(newLocations);
   }, [locations]);
@@ -104,62 +109,51 @@ export const useLocations = () => {
       return;
     }
 
+    // 전체 장소 최대 개수 제한 확인
+    if (geocodedLocations.length > 12) {
+      console.error('장소 개수가 너무 많습니다. 최대 12개까지 지원합니다.');
+      alert('장소 개수가 너무 많습니다. 최대 12개까지 지원합니다.');
+      return;
+    }
+
     console.log('🚀 경로 최적화 시작:', {
       장소수: geocodedLocations.length,
+      경유지수: waypointCount,
       장소목록: geocodedLocations.map(loc => ({ 이름: loc.name, 좌표: loc.coords }))
     });
 
     try {
-      const start = geocodedLocations[0];
-      const end = geocodedLocations[geocodedLocations.length - 1];
-      const waypoints = geocodedLocations.slice(1, -1);
+      // 새로운 HybridOptimizer 사용
+      const { HybridOptimizer } = await import('../utils/routeOptimizer.js');
+      const optimizationResult = await HybridOptimizer.optimize(geocodedLocations, getDirections);
 
-      if (waypoints.length === 0) {
-        const coordsArray = geocodedLocations.map(loc => loc.coords);
-        const result = await getDirections(coordsArray);
-        if (result) {
-          setOptimizedRoute(result);
-          const totalMinutes = Math.round(result.totalTime / 60000);
-          const hours = Math.floor(totalMinutes / 60);
-          const minutes = totalMinutes % 60;
-          const timeString = hours > 0 ? `${hours}시간 ${minutes}분` : `${minutes}분`;
-          console.log(`경로 계산 완료! 총 거리: ${(result.totalDistance / 1000).toFixed(1)}km, 예상 시간: ${timeString}`);
+      if (optimizationResult) {
+        if (optimizationResult.error === 'TOO_MANY_WAYPOINTS') {
+          console.error(optimizationResult.message);
+          alert(optimizationResult.message);
+          return;
         }
-        return;
-      }
 
-      const permutations = getPermutations(waypoints);
-      let bestRoute = null;
-      let bestTime = Infinity;
+        // 최적화된 경로로 위치 업데이트
+        setLocations(optimizationResult.optimizedLocations);
+        setOptimizedRoute(optimizationResult.routeData);
 
-      for (const perm of permutations) {
-        const coordsArray = [start.coords, ...perm.map(w => w.coords), end.coords];
-        const result = await getDirections(coordsArray);
-        if (result && result.totalTime < bestTime) {
-          bestTime = result.totalTime;
-          bestRoute = {
-            ...result,
-            waypointsOrder: perm
-          };
-        }
-      }
-
-      if (bestRoute) {
-        const newLocations = [start, ...bestRoute.waypointsOrder, end];
-        setLocations(newLocations);
-        setOptimizedRoute(bestRoute);
-
-        const totalMinutes = Math.round(bestRoute.totalTime / 60000);
+        const totalMinutes = Math.round(optimizationResult.routeData.totalTime / 60000);
         const hours = Math.floor(totalMinutes / 60);
         const minutes = totalMinutes % 60;
         const timeString = hours > 0 ? `${hours}시간 ${minutes}분` : `${minutes}분`;
 
-        console.log(`경로 최적화 완료! 총 거리: ${(bestRoute.totalDistance / 1000).toFixed(1)}km, 예상 시간: ${timeString}`);
+        console.log(`✅ 경로 최적화 완료!`, {
+          알고리즘: optimizationResult.optimizationMethod,
+          API호출: optimizationResult.apiCalls,
+          '총 거리': `${(optimizationResult.routeData.totalDistance / 1000).toFixed(1)}km`,
+          '예상 시간': timeString
+        });
       } else {
         console.error('경로를 계산할 수 없습니다. 다시 시도해주세요.');
       }
     } catch (error) {
-      console.error('❌ Directions API 오류:', error);
+      console.error('❌ 경로 최적화 오류:', error);
       console.error('경로 최적화 중 오류가 발생했습니다.');
     }
   }, [geocodedLocations]);
