@@ -19,18 +19,6 @@ export default function Document() {
         <Main />
         <NextScript />
 
-        {/* Naver Maps API Script */}
-        <Script
-          src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=3hku2yfd31"
-          strategy="beforeInteractive"
-          onLoad={() => {
-            console.log('네이버 지도 SDK 로드 완료');
-          }}
-          onError={() => {
-            console.error('네이버 지도 SDK 로드 실패');
-          }}
-        />
-
         {/* Kakao Maps JavaScript SDK v2 */}
         <script
           type="text/javascript"

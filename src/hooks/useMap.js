@@ -82,20 +82,20 @@ export const useMap = (mapContainerCallback) => {
       globalMapContainer = container;
       console.log('지도 컨테이너 준비됨:', globalMapContainer);
 
-      // 네이버 지도 SDK가 로드될 때까지 기다림
+      // 카카오 지도 SDK가 로드될 때까지 기다림
       let sdkWaitCount = 0;
       const maxSdkWaitCount = 100; // 최대 10초 대기
       
       const initMap = () => {
         sdkWaitCount++;
         
-        if (!window.naver || !window.naver.maps) {
+        if (!window.kakao || !window.kakao.maps) {
           if (sdkWaitCount > maxSdkWaitCount) {
-            console.error('네이버 지도 SDK 로드 시간 초과');
+            console.error('카카오 지도 SDK 로드 시간 초과');
             globalIsInitialized = false;
             return;
           }
-          console.log(`네이버 지도 SDK 대기 중... (${sdkWaitCount}/${maxSdkWaitCount})`);
+          console.log(`카카오 지도 SDK 대기 중... (${sdkWaitCount}/${maxSdkWaitCount})`);
           setTimeout(initMap, 100);
           return;
         }
@@ -110,11 +110,9 @@ export const useMap = (mapContainerCallback) => {
         try {
           console.log('지도 초기화 시작...');
           
-          const map = new window.naver.maps.Map(globalMapContainer, {
-            center: new window.naver.maps.LatLng(DEFAULT_CENTER.lat, DEFAULT_CENTER.lng),
-            zoom: 13,
-            minZoom: 7,
-            maxZoom: 21
+          const map = new window.kakao.maps.Map(globalMapContainer, {
+            center: new window.kakao.maps.LatLng(DEFAULT_CENTER.lat, DEFAULT_CENTER.lng),
+            level: 5 // 카카오 지도에서는 level 사용 (1-14, 숫자가 클수록 확대)
           });
 
           // 전역 변수에 저장
@@ -126,11 +124,12 @@ export const useMap = (mapContainerCallback) => {
           setMapInstance(map);
           console.log('지도 인스턴스 생성 완료 (싱글톤)');
 
-          window.naver.maps.Event.addListener(map, 'center_changed', () => {
+          // 지도 중심 변경 이벤트 리스너
+          window.kakao.maps.event.addListener(map, 'center_changed', () => {
             const center = map.getCenter();
             setMapCenter({
-              lat: center.lat(),
-              lng: center.lng()
+              lat: center.getLat(),
+              lng: center.getLng()
             });
           });
 
@@ -156,7 +155,7 @@ export const useMap = (mapContainerCallback) => {
   // 지도 중심 업데이트
   useEffect(() => {
     if (mapInstance && mapCenter) {
-      mapInstance.setCenter(new window.naver.maps.LatLng(mapCenter.lat, mapCenter.lng));
+      mapInstance.setCenter(new window.kakao.maps.LatLng(mapCenter.lat, mapCenter.lng));
     }
   }, [mapCenter, mapInstance]);
 
@@ -164,7 +163,7 @@ export const useMap = (mapContainerCallback) => {
     setMapCenter(coords);
     if (globalMapInstance) {
       try {
-        globalMapInstance.setCenter(new window.naver.maps.LatLng(coords.lat, coords.lng));
+        globalMapInstance.setCenter(new window.kakao.maps.LatLng(coords.lat, coords.lng));
       } catch (error) {
         console.error('Error moving map:', error);
       }

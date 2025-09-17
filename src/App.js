@@ -47,6 +47,12 @@ function App() {
   const [optimizedRoute, setOptimizedRoute] = useState(null);
   const [showMapSelector, setShowMapSelector] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
+  
+  // 테스트용 마커 상태
+  const [testMarker, setTestMarker] = useState(null);
+  
+  // 검색 결과 마커들을 별도로 관리
+  const [searchMarkers, setSearchMarkers] = useState([]);
 
   const mapRef = useRef(null);
 
@@ -165,6 +171,50 @@ function App() {
     fetchRoute();
   }, [geocodedLocations, isOptimizing]);
 
+  // 검색 결과 마커들을 모두 제거하는 함수 (테스트 방식 적용)
+  const clearAllSearchMarkers = useCallback(() => {
+    console.log('🔍 clearAllSearchMarkers 호출됨, searchMarkers 길이:', searchMarkers.length);
+    console.log('🔍 searchMarkers 배열:', searchMarkers);
+    
+    if (searchMarkers.length === 0) {
+      console.log('❌ 삭제할 검색 결과 마커가 없습니다');
+      return;
+    }
+
+    try {
+      console.log(`🗑️ 검색 결과 마커 ${searchMarkers.length}개 삭제 시작`);
+      
+      searchMarkers.forEach((marker, index) => {
+        console.log(`🔍 마커 ${index} 검사:`, marker);
+        console.log(`🔍 마커 ${index} setMap 함수:`, typeof marker?.setMap);
+        
+        if (marker && marker.setMap) {
+          console.log(`🗑️ 마커 ${index} setMap(null) 호출 전`);
+          marker.setMap(null);
+          console.log(`🗑️ 마커 ${index} setMap(null) 호출 후`);
+        } else {
+          console.log(`❌ 마커 ${index} setMap 함수 없음`);
+        }
+      });
+
+      // 상태 초기화
+      console.log('🔄 searchMarkers 상태 초기화');
+      setSearchMarkers([]);
+      
+      // 강제 새로고침
+      if (mapInstance && mapInstance.relayout) {
+        setTimeout(() => {
+          mapInstance.relayout();
+          console.log('🔄 검색 마커 삭제 후 지도 새로고침');
+        }, 100);
+      }
+      
+      console.log('✅ 모든 검색 결과 마커 삭제 완료');
+    } catch (error) {
+      console.error('❌ 검색 결과 마커 삭제 실패:', error);
+    }
+  }, [searchMarkers, mapInstance]);
+
   // 이벤트 핸들러들
   const updateLocation = useCallback((index, location) => {
     const newLocations = [...locations];
@@ -174,6 +224,8 @@ function App() {
 
   const handleSearchResultSelect = useCallback((result) => {
     if (editingIndex === null) return;
+
+    console.log('📍 검색 결과 선택됨:', result.title);
 
     const locationName = result.title.replace(/<[^>]*>/g, '');
     
@@ -205,15 +257,17 @@ function App() {
       coords: coords || { lat: 37.5665, lng: 126.9780 } // 좌표가 없으면 기본 좌표 사용
     });
 
+    console.log('🔙 장소 선택 후 리스트로 돌아감 - 지도 컨트롤 복원');
     setCurrentMode('list');
     setEditingIndex(null);
     clearSearch();
 
-    // 좌표가 없으면 추가하지 않음 (Kakao 검색에서 이미 좌표 제공됨)
-  }, [editingIndex, updateLocation, clearSearch]);
+    // 새로운 방식으로 검색 결과 마커 삭제
+    clearAllSearchMarkers();
+  }, [editingIndex, updateLocation, clearSearch, markersRef, mapInstance]);
 
   // Use map markers hook
-  useMapMarkers(mapInstance, geocodedLocations, userLocation, searchResults, optimizedRoute, markersRef, polylineRef, handleSearchResultSelect, moveMapToLocation);
+  useMapMarkers(mapInstance, geocodedLocations, userLocation, searchResults, optimizedRoute, markersRef, polylineRef, handleSearchResultSelect, moveMapToLocation, currentMode, searchMarkers, setSearchMarkers);
 
   const handleLocationClick = useCallback((index) => {
     setEditingIndex(index);
@@ -344,14 +398,72 @@ function App() {
   }, [geocodedLocations]);
 
   const handleBackToList = useCallback(() => {
+    console.log('🔙 검색 화면에서 리스트로 돌아감');
     setCurrentMode('list');
     setEditingIndex(null);
     clearSearch();
-  }, [clearSearch]);
+
+    // 새로운 방식으로 검색 결과 마커 삭제
+    clearAllSearchMarkers();
+  }, [clearSearch, clearAllSearchMarkers]);
 
   const handleSelectFromFavorites = useCallback((locationName) => {
     selectFromFavorites(locationName, editingIndex, locations, updateLocation, setCurrentMode);
   }, [selectFromFavorites, editingIndex, locations, updateLocation]);
+
+  // 테스트용 마커 생성
+  const createTestMarker = useCallback(() => {
+    if (!mapInstance) {
+      console.log('❌ 지도 인스턴스가 없습니다');
+      return;
+    }
+
+    // 기존 테스트 마커가 있으면 제거
+    if (testMarker) {
+      testMarker.setMap(null);
+      console.log('🗑️ 기존 테스트 마커 제거');
+    }
+
+    // 현재 지도 중심에 테스트 마커 생성
+    const center = mapInstance.getCenter();
+    const marker = new window.kakao.maps.Marker({
+      position: center,
+      map: mapInstance,
+      title: "TEST_MARKER"
+    });
+
+    setTestMarker(marker);
+    console.log('✅ 테스트 마커 생성 완료:', {
+      lat: center.getLat(),
+      lng: center.getLng()
+    });
+  }, [mapInstance, testMarker]);
+
+  // 테스트용 마커 삭제
+  const removeTestMarker = useCallback(() => {
+    if (!testMarker) {
+      console.log('❌ 삭제할 테스트 마커가 없습니다');
+      return;
+    }
+
+    try {
+      console.log('🗑️ 테스트 마커 삭제 시작');
+      testMarker.setMap(null);
+      setTestMarker(null);
+      
+      // 강제 새로고침
+      if (mapInstance && mapInstance.relayout) {
+        setTimeout(() => {
+          mapInstance.relayout();
+          console.log('🔄 테스트 마커 삭제 후 지도 새로고침');
+        }, 100);
+      }
+      
+      console.log('✅ 테스트 마커 삭제 완료');
+    } catch (error) {
+      console.error('❌ 테스트 마커 삭제 실패:', error);
+    }
+  }, [testMarker, mapInstance]);
 
   return (
     <div className="App">
@@ -387,6 +499,57 @@ function App() {
           onPageChange={setCurrentPage}
         />
       )}
+
+      {/* 테스트용 버튼들 */}
+      <div style={{ 
+        padding: '10px 20px', 
+        backgroundColor: '#f0f0f0', 
+        margin: '10px 20px',
+        borderRadius: '8px',
+        border: '2px solid #ff6b6b'
+      }}>
+        <h4 style={{ margin: '0 0 10px 0', color: '#ff6b6b' }}>🧪 마커 삭제 테스트</h4>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <button
+            onClick={createTestMarker}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#4CAF50',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            테스트 마커 생성
+          </button>
+          <button
+            onClick={removeTestMarker}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#f44336',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            테스트 마커 삭제
+          </button>
+          <span style={{ 
+            padding: '8px 16px', 
+            backgroundColor: testMarker ? '#4CAF50' : '#ccc',
+            color: 'white',
+            borderRadius: '4px',
+            fontSize: '12px'
+          }}>
+            상태: {testMarker ? '마커 있음' : '마커 없음'}
+          </span>
+        </div>
+        <p style={{ margin: '10px 0 0 0', fontSize: '12px', color: '#666' }}>
+          현재 지도 중심에 마커를 생성하고 삭제할 수 있는지 테스트합니다.
+        </p>
+      </div>
 
       <MapSection
         mapRef={mapRef}
