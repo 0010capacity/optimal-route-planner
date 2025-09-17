@@ -301,33 +301,14 @@ export class HybridOptimizer {
   static async optimizeBranchAndBound(locations, getDirections) {
     const n = locations.length;
 
-    // 유클리드 거리 기반 필터링 적용
-    console.log('Applying Euclidean distance filtering for Branch and Bound...');
-    const { validPairs, threshold, avgDist } = filterByEuclideanDistance(locations, 2.0);
+    console.log(`Branch and Bound: Using ALL ${n} locations for guaranteed optimal solution`);
 
-    // 필터링된 위치들로 새로운 위치 배열 생성
-    const filteredIndices = new Set();
-    filteredIndices.add(0); // 시작점
-    filteredIndices.add(n - 1); // 끝점
-
-    // 유효한 쌍에 포함된 중간 지점들 추가
-    for (const pair of validPairs) {
-      const [i, j] = pair.split('-').map(Number);
-      if (i > 0 && i < n - 1) filteredIndices.add(i);
-      if (j > 0 && j < n - 1) filteredIndices.add(j);
-    }
-
-    const filteredLocations = Array.from(filteredIndices).sort((a, b) => a - b).map(idx => locations[idx]);
+    // 유클리드 필터링 제거 - 최적해 보장을 위해 모든 지점 사용
+    const filteredLocations = locations; // 모든 지점 사용
     const filteredN = filteredLocations.length;
 
-    console.log(`Branch and Bound filtering: ${n} -> ${filteredN} locations (threshold: ${threshold.toFixed(2)}km, avg: ${avgDist.toFixed(2)}km)`);
-
-    if (filteredN < n) {
-      console.log('Using filtered locations for Branch and Bound');
-    }
-
     // 1단계: 거리 행렬 구축 (O(n²) API 호출)
-    console.log('Building distance matrix for Branch and Bound...');
+    console.log('Building complete distance matrix for Branch and Bound...');
     const distanceMatrix = await HybridOptimizer.buildDistanceMatrix(filteredLocations, getDirections);
     const apiCallsForMatrix = filteredN * (filteredN - 1) / 2; // 대칭이므로 절반만
 
@@ -365,32 +346,16 @@ export class HybridOptimizer {
     const end = locations[locations.length - 1];
     const waypoints = locations.slice(1, -1);
 
-    // 유클리드 거리 기반 필터링 적용
-    console.log('Applying Euclidean distance filtering for brute force...');
-    const { validPairs, threshold, avgDist } = filterByEuclideanDistance(locations, 2.0);
+    console.log(`Brute Force: Using ALL ${waypoints.length} waypoints for guaranteed optimal solution`);
 
-    // 필터링된 순열 생성 (유효한 쌍만 포함)
-    const filteredPermutations = getPermutations(waypoints).filter(perm => {
-      // 순열 내 모든 연속 쌍이 유효한지 확인
-      const currentLocations = [start, ...perm, end];
-      for (let i = 0; i < currentLocations.length - 1; i++) {
-        const fromIndex = locations.indexOf(currentLocations[i]);
-        const toIndex = locations.indexOf(currentLocations[i + 1]);
-        const pairKey = `${Math.min(fromIndex, toIndex)}-${Math.max(fromIndex, toIndex)}`;
-        if (!validPairs.has(pairKey)) {
-          return false; // 유효하지 않은 쌍이 있으면 제외
-        }
-      }
-      return true;
-    });
+    // 유클리드 필터링 제거 - 최적해 보장을 위해 모든 순열 사용
+    const filteredPermutations = getPermutations(waypoints); // 모든 순열 사용
 
-    console.log(`Filtered ${getPermutations(waypoints).length} -> ${filteredPermutations.length} permutations (threshold: ${threshold.toFixed(2)}km, avg: ${avgDist.toFixed(2)}km)`);
+    console.log(`Testing ALL ${filteredPermutations.length} permutations for guaranteed optimal solution`);
 
     let bestRoute = null;
     let bestTime = Infinity;
     let apiCallCount = 0;
-
-    console.log(`Testing ${filteredPermutations.length} filtered permutations...`);
 
     for (const perm of filteredPermutations) {
       const currentLocations = [start, ...perm, end];
@@ -426,33 +391,14 @@ export class HybridOptimizer {
   static async optimizeTSPDP(locations, getDirections) {
     const n = locations.length;
 
-    // 유클리드 거리 기반 필터링 적용
-    console.log('Applying Euclidean distance filtering for TSP DP...');
-    const { validPairs, threshold, avgDist } = filterByEuclideanDistance(locations, 2.0);
+    console.log(`TSP DP: Using ALL ${n} locations for guaranteed optimal solution`);
 
-    // 필터링된 위치들로 새로운 위치 배열 생성
-    const filteredIndices = new Set();
-    filteredIndices.add(0); // 시작점
-    filteredIndices.add(n - 1); // 끝점
-
-    // 유효한 쌍에 포함된 중간 지점들 추가
-    for (const pair of validPairs) {
-      const [i, j] = pair.split('-').map(Number);
-      if (i > 0 && i < n - 1) filteredIndices.add(i);
-      if (j > 0 && j < n - 1) filteredIndices.add(j);
-    }
-
-    const filteredLocations = Array.from(filteredIndices).sort((a, b) => a - b).map(idx => locations[idx]);
+    // 유클리드 필터링 제거 - 최적해 보장을 위해 모든 지점 사용
+    const filteredLocations = locations; // 모든 지점 사용
     const filteredN = filteredLocations.length;
 
-    console.log(`TSP DP filtering: ${n} -> ${filteredN} locations (threshold: ${threshold.toFixed(2)}km, avg: ${avgDist.toFixed(2)}km)`);
-
-    if (filteredN < n) {
-      console.log('Using filtered locations for TSP DP');
-    }
-
     // 1단계: 거리 행렬 구축 (O(n²) API 호출)
-    console.log('Building distance matrix for TSP DP...');
+    console.log('Building complete distance matrix for TSP DP...');
     const distanceMatrix = await HybridOptimizer.buildDistanceMatrix(filteredLocations, getDirections);
     const apiCallsForMatrix = filteredN * (filteredN - 1) / 2; // 대칭이므로 절반만
 
@@ -487,33 +433,14 @@ export class HybridOptimizer {
   static async optimize2Opt(locations, getDirections) {
     const n = locations.length;
 
-    // 유클리드 거리 기반 필터링 적용
-    console.log('Applying Euclidean distance filtering for 2-opt...');
-    const { validPairs, threshold, avgDist } = filterByEuclideanDistance(locations, 2.0);
+    console.log(`2-opt: Using ALL ${n} locations for optimization`);
 
-    // 필터링된 위치들로 새로운 위치 배열 생성
-    const filteredIndices = new Set();
-    filteredIndices.add(0); // 시작점
-    filteredIndices.add(n - 1); // 끝점
-
-    // 유효한 쌍에 포함된 중간 지점들 추가
-    for (const pair of validPairs) {
-      const [i, j] = pair.split('-').map(Number);
-      if (i > 0 && i < n - 1) filteredIndices.add(i);
-      if (j > 0 && j < n - 1) filteredIndices.add(j);
-    }
-
-    const filteredLocations = Array.from(filteredIndices).sort((a, b) => a - b).map(idx => locations[idx]);
+    // 유클리드 필터링 제거 - 모든 지점 사용
+    const filteredLocations = locations; // 모든 지점 사용
     const filteredN = filteredLocations.length;
 
-    console.log(`2-opt filtering: ${n} -> ${filteredN} locations (threshold: ${threshold.toFixed(2)}km, avg: ${avgDist.toFixed(2)}km)`);
-
-    if (filteredN < n) {
-      console.log('Using filtered locations for 2-opt');
-    }
-
     // 1단계: 필터링된 위치들에 대한 거리 행렬 구축
-    console.log('Building distance matrix...');
+    console.log('Building complete distance matrix for 2-opt...');
     const distanceMatrix = await HybridOptimizer.buildDistanceMatrix(filteredLocations, getDirections);
     const apiCallsForMatrix = filteredN * (filteredN - 1) / 2; // 대칭이므로 절반만
 
@@ -547,28 +474,12 @@ export class HybridOptimizer {
   static async optimizeHeuristic(locations, getDirections) {
     const n = locations.length;
 
-    // 유클리드 거리 기반 필터링 적용
-    console.log('Applying Euclidean distance filtering for heuristic...');
-    const { validPairs, threshold, avgDist } = filterByEuclideanDistance(locations, 2.0);
+    console.log(`Heuristic: Using ALL ${n} locations for optimization`);
 
-    // 필터링된 위치들로 새로운 위치 배열 생성
-    const filteredIndices = new Set();
-    filteredIndices.add(0); // 시작점
-    filteredIndices.add(n - 1); // 끝점
-
-    // 유효한 쌍에 포함된 중간 지점들 추가
-    for (const pair of validPairs) {
-      const [i, j] = pair.split('-').map(Number);
-      if (i > 0 && i < n - 1) filteredIndices.add(i);
-      if (j > 0 && j < n - 1) filteredIndices.add(j);
-    }
-
-    const filteredLocations = Array.from(filteredIndices).sort((a, b) => a - b).map(idx => locations[idx]);
+    // 유클리드 필터링 제거 - 모든 지점 사용
+    const filteredLocations = locations; // 모든 지점 사용
     const filteredN = filteredLocations.length;
 
-    console.log(`Heuristic filtering: ${n} -> ${filteredN} locations (threshold: ${threshold.toFixed(2)}km, avg: ${avgDist.toFixed(2)}km)`);
-
-    // 대용량의 경우 샘플링과 클러스터링 적용
     console.log('Using heuristic approach for large dataset...');
     
     // 간단한 구현: Nearest Neighbor만 사용
