@@ -37,6 +37,231 @@ const isValidCoordinateArray = (coordsArray) => {
 };
 
 /**
+ * 단일 경로 계산 함수
+ */
+const calculateSingleRoute = async (coordsArray, namesArray, KAKAO_REST_API_KEY) => {
+  const routeStartTime = Date.now();
+  console.log(`[${new Date().toISOString()}] Calculating route for ${coordsArray.length} locations`);
+
+  // 카카오 모빌리티 API 요청 준비
+  const start = coordsArray[0];
+  const goal = coordsArray[coordsArray.length - 1];
+  const waypoints = coordsArray.length > 2 ? coordsArray.slice(1, -1) : [];
+
+  // 쿼리 파라미터 구성
+  const params = new URLSearchParams({
+    origin: `${start.lng},${start.lat}`,
+    destination: `${goal.lng},${goal.lat}`,
+    priority: 'RECOMMEND',
+    car_fuel: 'GASOLINE',
+    car_hipass: false,
+    alternatives: false,
+    road_details: false,
+    summary: false
+  });
+
+  if (waypoints.length > 0) {
+    const waypointsStr = waypoints.map(wp => `${wp.lng},${wp.lat}`).join('|');
+    params.append('waypoints', waypointsStr);
+  }
+
+  const apiUrl = `https://apis-navi.kakaomobility.com/v1/directions?${params.toString()}`;
+  console.log(`[${new Date().toISOString()}] Calling Kakao API: ${apiUrl.substring(0, 100)}...`);
+
+  const kakaoStartTime = Date.now();
+  const response = await fetch(apiUrl, {
+    method: 'GET',
+    headers: {
+      'Authorization': `KakaoAK ${KAKAO_REST_API_KEY}`,
+      'Content-Type': 'application/json'
+    }
+  });
+  const kakaoEndTime = Date.now();
+  const kakaoDuration = kakaoEndTime - kakaoStartTime;
+  console.log(`[${new Date().toISOString()}] Kakao API response time: ${kakaoDuration}ms`);
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`[${new Date().toISOString()}] KAKAO API error:`, response.status, errorText);
+    throw new Error(`KAKAO API error: ${response.status} ${errorText}`);
+  }
+
+  const data = await response.json();
+  console.log(`[${new Date().toISOString()}] Kakao API response received, processing data...`);
+
+  // 카카오 API 응답을 기존 포맷으로 변환
+  if (!data.routes || !data.routes[0]) {
+    console.error(`[${new Date().toISOString()}] Invalid KAKAO API response - no routes found`);
+    throw new Error('Invalid KAKAO API response - no routes found');
+  }
+
+  const route = data.routes[0];
+  const summary = route.summary;
+
+  // summary가 없는 경우 처리 (출발지와 도착지가 같은 경우 등)
+  if (!summary) {
+    console.warn(`[${new Date().toISOString()}] KAKAO API returned no summary, using default values`);
+    return {
+      totalTime: 0,
+      totalDistance: 0,
+      path: [],
+      segmentTimes: [],
+      segmentDistances: [],
+      tollFare: 0,
+      taxiFare: 0,
+      fuelPrice: 0,
+      calculationTime: Date.now() - routeStartTime
+    };
+  }
+
+  // 경로 포인트 추출
+  const path = [];
+  if (route.sections) {
+    route.sections.forEach(section => {
+      if (section.roads) {
+        section.roads.forEach(road => {
+          if (road.vertexes) {
+            // 카카오 API는 [경도, 위도, 경도, 위도, ...] 형식
+            for (let i = 0; i < road.vertexes.length; i += 2) {
+              path.push({
+                lat: road.vertexes[i + 1], // 위도
+                lng: road.vertexes[i]      // 경도
+              });
+            }
+          }
+        });
+      }
+    });
+  }
+
+  // 구간별 시간과 거리 계산
+  const segmentTimes = [];
+  const segmentDistances = [];
+
+  if (route.sections && route.sections.length > 0) {
+    route.sections.forEach(section => {
+      segmentTimes.push(section.duration || 0);
+      segmentDistances.push(section.distance || 0);
+    });
+  } else {
+    // 단일 구간인 경우 또는 sections가 없는 경우
+    segmentTimes.push(summary.duration || 0);
+    segmentDistances.push(summary.distance || 0);
+  }
+
+  const result = {
+    totalTime: summary.duration || 0,
+    totalDistance: summary.distance || 0,
+    path: path,
+    segmentTimes: segmentTimes,
+    segmentDistances: segmentDistances,
+    tollFare: summary.fare?.toll || 0,
+    taxiFare: summary.fare?.taxi || 0,
+    fuelPrice: summary.fare?.fuel || 0,
+    calculationTime: Date.now() - routeStartTime
+  };
+
+  console.log(`[${new Date().toISOString()}] Single route calculation completed in ${result.calculationTime}ms`);
+  return result;
+};
+
+/**
+ * 배치 경로 계산 함수
+ */
+const calculateBatchRoutes = async (routesArray, KAKAO_REST_API_KEY) => {
+  console.log(`[${new Date().toISOString()}] Starting batch calculation for ${routesArray.length} routes`);
+
+  const batchPromises = routesArray.map(async (routeData, index) => {
+    try {
+      const result = await calculateSingleRoute(routeData.coordsArray, routeData.namesArray, KAKAO_REST_API_KEY);
+      return {
+        index: index,
+        route: routeData,
+        result: result,
+        success: true
+      };
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] Route ${index} calculation failed:`, error);
+      return {
+        index: index,
+        route: routeData,
+        error: error.message,
+        success: false
+      };
+    }
+  });
+
+  const batchResults = await Promise.all(batchPromises);
+  console.log(`[${new Date().toISOString()}] Batch calculation completed for ${routesArray.length} routes`);
+
+  return batchResults;
+};
+
+/**
+ * Directions API Route
+ */
+app.post('/api/directions', async (req, res) => {
+  const startTime = Date.now();
+  console.log(`[${new Date().toISOString()}] Directions API called`);
+
+  try {
+    const { coordsArray, namesArray, routesArray } = req.body;
+
+    // 카카오 모빌리티 API 키 확인
+    const KAKAO_REST_API_KEY = functions.config().kakao?.rest_api_key || process.env.KAKAO_REST_API_KEY;
+    if (!KAKAO_REST_API_KEY) {
+      console.error('KAKAO_REST_API_KEY not configured');
+      return res.status(500).json({ error: 'API configuration error' });
+    }
+
+    // 배치 처리 요청인 경우
+    if (routesArray && Array.isArray(routesArray)) {
+      console.log(`[${new Date().toISOString()}] Processing batch request with ${routesArray.length} routes`);
+
+      const batchResults = await calculateBatchRoutes(routesArray, KAKAO_REST_API_KEY);
+
+      const endTime = Date.now();
+      const totalDuration = endTime - startTime;
+      console.log(`[${new Date().toISOString()}] Batch Directions API completed in ${totalDuration}ms`);
+
+      return res.status(200).json({
+        batch: true,
+        results: batchResults,
+        totalTime: totalDuration,
+        routeCount: routesArray.length
+      });
+    }
+
+    // 단일 경로 처리 (기존 방식)
+    if (!coordsArray || !Array.isArray(coordsArray) || coordsArray.length < 2) {
+      console.log(`[${new Date().toISOString()}] Invalid coordinates array:`, coordsArray);
+      return res.status(400).json({ error: 'Invalid coordinates array' });
+    }
+
+    if (!isValidCoordinateArray(coordsArray)) {
+      console.log(`[${new Date().toISOString()}] Invalid coordinate format:`, coordsArray);
+      return res.status(400).json({ error: 'Invalid coordinate format' });
+    }
+
+    console.log(`[${new Date().toISOString()}] Processing single route with ${coordsArray.length} locations`);
+
+    const result = await calculateSingleRoute(coordsArray, namesArray, KAKAO_REST_API_KEY);
+
+    const endTime = Date.now();
+    const totalDuration = endTime - startTime;
+    console.log(`[${new Date().toISOString()}] Single Directions API completed in ${totalDuration}ms`);
+
+    res.status(200).json(result);
+
+  } catch (error) {
+    const endTime = Date.now();
+    const totalDuration = endTime - startTime;
+    console.error(`[${new Date().toISOString()}] Directions API error after ${totalDuration}ms:`, error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
  * Directions API Route
  */
 app.post('/api/directions', async (req, res) => {

@@ -2,7 +2,7 @@
   "functions": {
     "source": "functions",
     "runtime": "nodejs18",
-    "memory": "1GB",
+    "memory": "512MB",
     "cpu": 1,
     "region": "asia-northeast3"
   },
