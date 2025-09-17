@@ -33,6 +33,7 @@ function App() {
     locations,
     geocodedLocations,
     optimizedRoute,
+    distanceMatrix,
     setCurrentMode,
     setEditingIndex,
     setShowFavorites,
@@ -41,7 +42,9 @@ function App() {
     setIsOptimizing,
     setGeocodedLocations,
     setOptimizedRoute,
+    setDistanceMatrix,
     updateLocation,
+    updateLocations,
     addLocation,
     deleteLocation,
     reorderLocations,
@@ -96,7 +99,9 @@ function App() {
   // Update geocoded locations state
   useEffect(() => {
     setGeocodedLocations(memoizedGeocodedLocations);
-  }, [memoizedGeocodedLocations, setGeocodedLocations]);
+    // 경유지가 변경되면 최적화된 경로를 리셋
+    setOptimizedRoute(null);
+  }, [memoizedGeocodedLocations, setGeocodedLocations, setOptimizedRoute]);
 
   // Use route calculation hook
   useRouteCalculation(memoizedGeocodedLocations, isOptimizing, setOptimizedRoute);
@@ -114,10 +119,12 @@ function App() {
     locations,
     memoizedGeocodedLocations,
     updateLocation,
+    updateLocations,
     setCurrentMode,
     setEditingIndex,
     setOptimizedRoute,
     setIsOptimizing,
+    setDistanceMatrix,
     markersRef,
     mapInstance,
     clearSearch
@@ -143,7 +150,7 @@ function App() {
   const itemsPerPage = 10;
 
   // Use map markers hook
-  useMapMarkers(mapInstance, memoizedGeocodedLocations, userLocation, searchResults, optimizedRoute, markersRef, polylineRef, handleSearchResultSelect, moveMapToLocation, currentMode);
+  useMapMarkers(mapInstance, memoizedGeocodedLocations, userLocation, searchResults, optimizedRoute, markersRef, polylineRef, handleSearchResultSelect, moveMapToLocation, currentMode, isOptimizing);
 
   return (
     <div className="App">
@@ -159,6 +166,8 @@ function App() {
           onDeleteLocation={deleteLocation}
           isOptimizing={isOptimizing}
           onShareRoute={handleShareRouteWithModal}
+          distanceMatrix={distanceMatrix}
+          geocodedLocations={memoizedGeocodedLocations}
         />
       ) : (
         <SearchSection

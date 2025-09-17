@@ -8,10 +8,12 @@ export const useAppHandlers = (
   locations,
   geocodedLocations,
   updateLocation,
+  updateLocations,
   setCurrentMode,
   setEditingIndex,
   setOptimizedRoute,
   setIsOptimizing,
+  setDistanceMatrix,
   markersRef,
   mapInstance,
   clearSearch
@@ -137,21 +139,31 @@ export const useAppHandlers = (
           method: optimizationMethod,
           apiCalls,
           iterations,
-          totalTime: `${(routeData.totalTime/60000).toFixed(1)}min`,
+          totalTime: `${(routeData.totalTime/60).toFixed(1)}min`,
           totalDistance: `${(routeData.totalDistance/1000).toFixed(1)}km`
         });
 
         // Update locations with optimized order
-        locations.splice(0, locations.length, ...optimizedLocations);
-        setOptimizedRoute({
-          ...routeData,
-          order: optimizedLocations.map((_, index) => index),
-          optimizationStats: {
-            method: optimizationMethod,
-            apiCalls,
-            iterations: iterations || 0
-          }
-        });
+        console.log('📍 최적화 전 locations:', locations.map(loc => loc.name));
+        console.log('📍 최적화 후 optimizedLocations:', optimizedLocations.map(loc => loc.name));
+        
+        // 출발점과 도착점을 고정하고 중간 경유지만 재배열
+        const startLocation = locations[0];
+        const endLocation = locations[locations.length - 1];
+        
+        // 최적화 결과에서 중간 경유지만 추출 (첫 번째와 마지막은 무시)
+        const optimizedWaypoints = optimizedLocations.slice(1, -1);
+        
+        // 새로운 locations 구성: [출발점, ...최적화된 경유지, 도착점]
+        const newLocations = [startLocation, ...optimizedWaypoints, endLocation];
+        
+        console.log('📍 업데이트할 newLocations:', newLocations.map(loc => loc.name));
+        
+        // locations 업데이트
+        updateLocations(newLocations);
+        
+        // geocodedLocations는 useAppState의 useEffect에서 자동으로 업데이트됨
+        setDistanceMatrix(result.distanceMatrix);
 
         // Log results (console only)
         const totalMinutes = Math.round(routeData.totalTime / 60);

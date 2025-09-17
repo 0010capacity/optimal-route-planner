@@ -9,6 +9,7 @@ export const useLocations = () => {
   ]);
   const [geocodedLocations, setGeocodedLocations] = useState([]);
   const [optimizedRoute, setOptimizedRoute] = useState(null);
+  const [distanceMatrix, setDistanceMatrix] = useState(null);
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
 
@@ -137,6 +138,7 @@ export const useLocations = () => {
         // 최적화된 경로로 위치 업데이트
         setLocations(optimizationResult.optimizedLocations);
         setOptimizedRoute(optimizationResult.routeData);
+        setDistanceMatrix(optimizationResult.distanceMatrix);
 
         const totalMinutes = Math.round(optimizationResult.routeData.totalTime / 60000);
         const hours = Math.floor(totalMinutes / 60);
@@ -168,6 +170,7 @@ export const useLocations = () => {
     locations,
     geocodedLocations,
     optimizedRoute,
+    distanceMatrix,
     draggedIndex,
     dragOverIndex,
     handleAddLocation,

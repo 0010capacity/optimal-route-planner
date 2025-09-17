@@ -25,6 +25,7 @@ export const useAppState = () => {
 
   const [geocodedLocations, setGeocodedLocations] = useState([]);
   const [optimizedRoute, setOptimizedRoute] = useState(null);
+  const [distanceMatrix, setDistanceMatrix] = useState(null);
 
   // Update locations and sync to localStorage
   const updateLocations = useCallback((newLocations) => {
@@ -63,6 +64,7 @@ export const useAppState = () => {
     locations,
     geocodedLocations,
     optimizedRoute,
+    distanceMatrix,
 
     // Setters
     setCurrentMode,
@@ -73,9 +75,11 @@ export const useAppState = () => {
     setIsOptimizing,
     setGeocodedLocations,
     setOptimizedRoute,
+    setDistanceMatrix,
 
     // Actions
     updateLocation,
+    updateLocations,
     addLocation,
     deleteLocation,
     reorderLocations,

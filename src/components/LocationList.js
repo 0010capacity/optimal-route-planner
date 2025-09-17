@@ -18,6 +18,7 @@ import {
 } from '@dnd-kit/sortable';
 import {CSS} from '@dnd-kit/utilities';
 import { Icon } from './Icon';
+import DistanceMatrixVisualizer from './DistanceMatrixVisualizer';
 
 // 개별 위치 아이템 컴포넌트
 const SortableLocationItem = ({ 
@@ -101,7 +102,9 @@ const LocationList = ({
   onDeleteLocation,
   isOptimizing,
   onShareRoute,
-  onReorderLocations
+  onReorderLocations,
+  distanceMatrix,
+  geocodedLocations
 }) => {
   // 드래그 센서 설정 - 터치와 마우스 모두 지원, 즉시 반응
   const sensors = useSensors(
@@ -255,6 +258,11 @@ const LocationList = ({
             </div>
           </div>
         )}
+        
+        <DistanceMatrixVisualizer 
+          distanceMatrix={distanceMatrix} 
+          locations={geocodedLocations} 
+        />
       </div>
     </>
   );

@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useMemo } from 'react';
 import { getMarkerColor, getMarkerSymbol, createMarkerIcon, createUserLocationIcon, createSearchMarkerIcon } from '../utils/mapUtils';
 
-export const useMapMarkers = (mapInstance, geocodedLocations, userLocation, searchResults, optimizedRoute, markersRef, polylineRef, handleSearchResultSelect, moveMapToLocation, currentMode) => {
+export const useMapMarkers = (mapInstance, geocodedLocations, userLocation, searchResults, optimizedRoute, markersRef, polylineRef, handleSearchResultSelect, moveMapToLocation, currentMode, isOptimizing) => {
   // Memoize marker removal condition
   const searchMarkerCondition = useCallback((marker) => marker.getTitle && /^\d+\.\s/.test(marker.getTitle()), []);
 
@@ -21,6 +21,7 @@ export const useMapMarkers = (mapInstance, geocodedLocations, userLocation, sear
 
   // Helper function to clear all markers and polyline
   const clearAllMarkersAndPolyline = useCallback(() => {
+    console.log('🧹 모든 마커와 경로 라인 제거');
     markersRef.current.forEach(marker => {
       if (marker && marker.setMap) {
         marker.setMap(null);
@@ -33,6 +34,21 @@ export const useMapMarkers = (mapInstance, geocodedLocations, userLocation, sear
       polylineRef.current = null;
     }
   }, []);
+
+  // Helper function to clear route line
+  const clearRouteLine = useCallback(() => {
+    if (polylineRef.current && polylineRef.current.setMap) {
+      console.log('🗑️ 경로 라인 강제 제거');
+      polylineRef.current.setMap(null);
+      polylineRef.current = null;
+    }
+  }, []);
+
+  // geocodedLocations이 변경될 때마다 경로 라인 강제 제거
+  useEffect(() => {
+    console.log('📍 geocodedLocations 변경 감지:', geocodedLocations.length, '개 지점');
+    clearRouteLine();
+  }, [geocodedLocations, clearRouteLine]);
 
   // Helper function to add waypoint markers
   const addWaypointMarkers = useCallback(() => {
@@ -69,7 +85,20 @@ export const useMapMarkers = (mapInstance, geocodedLocations, userLocation, sear
 
   // Helper function to display optimized route
   const displayOptimizedRoute = useCallback(() => {
-    if (!optimizedRoute || !optimizedRoute.path || optimizedRoute.path.length === 0) return;
+    // 기존 경로 라인 제거 (항상 먼저 실행)
+    if (polylineRef.current && polylineRef.current.setMap) {
+      console.log('🗑️ 기존 경로 라인 제거');
+      polylineRef.current.setMap(null);
+      polylineRef.current = null;
+    }
+
+    // 최적화 중이거나 경로가 없으면 라인을 그리지 않음
+    if (isOptimizing || !optimizedRoute || !optimizedRoute.path || optimizedRoute.path.length === 0) {
+      console.log('🚫 경로 라인 표시 조건 불충족:', { isOptimizing, hasRoute: !!optimizedRoute, hasPath: !!(optimizedRoute?.path), pathLength: optimizedRoute?.path?.length });
+      return;
+    }
+
+    console.log('🛣️ 새로운 경로 라인 표시:', optimizedRoute.path.length, '포인트');
 
     const pathCoords = optimizedRoute.path.map(coord =>
       new window.kakao.maps.LatLng(coord.lat, coord.lng)
@@ -98,7 +127,7 @@ export const useMapMarkers = (mapInstance, geocodedLocations, userLocation, sear
         }
       }, 100);
     }
-  }, [optimizedRoute, mapInstance]);
+  }, [optimizedRoute, mapInstance, isOptimizing]);
 
   // Memoize search results titles for comparison
   const currentSearchTitles = useMemo(() =>
@@ -137,7 +166,7 @@ export const useMapMarkers = (mapInstance, geocodedLocations, userLocation, sear
 
     // Display optimized route
     displayOptimizedRoute();
-  }, [mapInstance, geocodedLocations, userLocation, optimizedRoute, currentMode, removeMarkers, clearAllMarkersAndPolyline, addWaypointMarkers, addUserLocationMarker, displayOptimizedRoute, searchMarkerCondition]);
+  }, [mapInstance, geocodedLocations, userLocation, optimizedRoute, currentMode, isOptimizing, removeMarkers, clearAllMarkersAndPolyline, addWaypointMarkers, addUserLocationMarker, displayOptimizedRoute, searchMarkerCondition, clearRouteLine]);
 
   // Search result markers management
   useEffect(() => {

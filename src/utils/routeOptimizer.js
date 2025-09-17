@@ -245,6 +245,12 @@ export class HybridOptimizer {
         result = await HybridOptimizer.optimizeTwoPoints(locations, getDirections);
         method = 'direct';
         apiCalls = 1;
+      } else if (waypointCount <= 8) {
+        // Brute Force 최적화 (완전 탐색으로 정확한 최적해 보장)
+        console.log('Using Brute Force optimization (≤8 waypoints - GUARANTEED OPTIMAL)');
+        result = await HybridOptimizer.optimizeBruteForce(locations, getDirections);
+        method = 'brute_force';
+        apiCalls = result?.apiCalls || 0;
       } else if (waypointCount <= 10) {
         // Branch and Bound 최적화 (정확한 최적해 보장)
         console.log('Using Branch and Bound optimization (≤10 waypoints - GUARANTEED OPTIMAL)');
@@ -334,7 +340,8 @@ export class HybridOptimizer {
       optimizationMethod: 'branch_and_bound',
       apiCalls: apiCallsForMatrix + 1,
       nodesExplored: bbResult.nodesExplored,
-      duration: bbResult.duration
+      duration: bbResult.duration,
+      distanceMatrix: distanceMatrix
     };
   }
 
@@ -423,7 +430,8 @@ export class HybridOptimizer {
       routeData: finalResult,
       optimizationMethod: 'tsp_dp',
       apiCalls: apiCallsForMatrix + 1,
-      iterations: 0 // DP는 반복이 없음
+      iterations: 0, // DP는 반복이 없음
+      distanceMatrix: distanceMatrix
     };
   }
 
@@ -464,7 +472,8 @@ export class HybridOptimizer {
       routeData: finalResult,
       optimizationMethod: '2-opt',
       apiCalls: apiCallsForMatrix + 1,
-      iterations: optimized.iterations
+      iterations: optimized.iterations,
+      distanceMatrix: distanceMatrix
     };
   }
 
@@ -736,7 +745,7 @@ export class BranchAndBoundOptimizer {
     this.nodesExplored++;
 
     // 가지치기 1: 현재 비용이 이미 찾은 최적 비용보다 크면 중단
-    if (currentCost >= this.bestCost) {
+    if (this.bestCost !== Infinity && currentCost >= this.bestCost) {
       return;
     }
 
@@ -748,14 +757,17 @@ export class BranchAndBoundOptimizer {
       if (finalCost < this.bestCost) {
         this.bestCost = finalCost;
         this.bestRoute = [...currentRoute, endIndex];
+        console.log(`새로운 최적 경로 발견: 비용 ${finalCost}, 경로: ${this.bestRoute.join(' -> ')}`);
       }
       return;
     }
 
     // 가지치기 2: 하한 계산으로 더 이상 탐색할 필요가 없으면 중단
-    const lowerBound = this.calculateLowerBound(currentRoute, unvisited, endIndex, currentCost);
-    if (lowerBound >= this.bestCost) {
-      return;
+    if (this.bestCost !== Infinity) {
+      const lowerBound = this.calculateLowerBound(currentRoute, unvisited, endIndex, currentCost);
+      if (lowerBound >= this.bestCost) {
+        return;
+      }
     }
 
     // 다음 방문할 노드들 탐색 (가장 가까운 노드부터 우선 탐색)
@@ -805,11 +817,20 @@ export class BranchAndBoundOptimizer {
       for (const visited of currentRoute) {
         minCost = Math.min(minCost, this.distanceMatrix[visited][node]);
       }
+      // 끝점과의 거리도 고려
+      minCost = Math.min(minCost, this.distanceMatrix[node][endIndex]);
       minConnectionCost += minCost;
     }
 
     // 하한 = 현재 비용 + MST 비용 + 연결 비용 + 끝점까지 비용
-    return currentCost + mstCost + minConnectionCost + toEndCost;
+    const lowerBound = currentCost + mstCost + minConnectionCost + toEndCost;
+
+    // 디버깅을 위한 로그 (작은 규모에서만)
+    if (this.n <= 6) {
+      console.log(`하한 계산: 현재비용=${currentCost}, MST=${mstCost}, 연결=${minConnectionCost}, 끝점=${toEndCost}, 총=${lowerBound}`);
+    }
+
+    return lowerBound;
   }
 
   /**
@@ -846,7 +867,9 @@ export class BranchAndBoundOptimizer {
       // 다른 방문하지 않은 노드들의 거리 업데이트
       for (let j = 0; j < n; j++) {
         if (!visited.has(j)) {
-          const dist = this.distanceMatrix[nodes[minIndex]][nodes[j]];
+          const actualNodeA = nodes[minIndex]; // 실제 distanceMatrix 인덱스
+          const actualNodeB = nodes[j];       // 실제 distanceMatrix 인덱스
+          const dist = this.distanceMatrix[actualNodeA][actualNodeB];
           if (dist < distances[j]) {
             distances[j] = dist;
           }
