@@ -265,7 +265,7 @@ function App() {
         <div className="footer-content">
           <div className="footer-main">
             <div className="footer-brand">
-              <h4>최적 경로 플래너 <span className="beta-badge">BETA</span></h4>
+              <h4>최적 경로 플래너</h4>
               <p>여러 장소를 효율적으로 방문할 수 있는 최적 경로를 자동으로 계산해주는 웹 애플리케이션입니다.</p>
               <div className="footer-brand-links">
                 <a href="https://github.com/0010capacity/optimal-route-planner" target="_blank" rel="noopener noreferrer">
