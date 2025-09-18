@@ -71,140 +71,8 @@ export const filterByEuclideanDistance = (locations, thresholdMultiplier = 1.5) 
 };
 
 /**
- * 거리 행렬을 기반으로 한 2-opt 최적화 알고리즘
- * API 호출 횟수를 O(n²)으로 줄임
- */
-export class TwoOptOptimizer {
-  constructor(distanceMatrix, locations) {
-    this.distanceMatrix = distanceMatrix;
-    this.locations = locations;
-  }
-
-  /**
-   * 2-opt 알고리즘으로 경로 최적화
-   * @param {number[]} route - 초기 경로 (인덱스 배열)
-   * @param {number} maxIterations - 최대 반복 횟수
-   * @returns {Object} 최적화된 경로와 총 거리
-   */
-  optimize(route, maxIterations = 100) {
-    let bestRoute = [...route];
-    let bestDistance = this.calculateRouteDistance(bestRoute);
-    let improved = true;
-    let iterations = 0;
-
-    while (improved && iterations < maxIterations) {
-      improved = false;
-      iterations++;
-
-      for (let i = 1; i < route.length - 2; i++) {
-        for (let j = i + 1; j < route.length - 1; j++) {
-          const newRoute = this.twoOptSwap(bestRoute, i, j);
-          const newDistance = this.calculateRouteDistance(newRoute);
-
-          if (newDistance < bestDistance) {
-            bestRoute = newRoute;
-            bestDistance = newDistance;
-            improved = true;
-          }
-        }
-      }
-    }
-
-    return {
-      route: bestRoute,
-      totalDistance: bestDistance,
-      iterations
-    };
-  }
-
-  /**
-   * 2-opt 스왑 연산
-   */
-  twoOptSwap(route, i, j) {
-    const newRoute = [...route];
-    // i부터 j까지 구간을 뒤집음
-    while (i < j) {
-      [newRoute[i], newRoute[j]] = [newRoute[j], newRoute[i]];
-      i++;
-      j--;
-    }
-    return newRoute;
-  }
-
-  /**
-   * 경로의 총 거리 계산
-   */
-  calculateRouteDistance(route) {
-    let totalDistance = 0;
-    for (let i = 0; i < route.length - 1; i++) {
-      const from = route[i];
-      const to = route[i + 1];
-      totalDistance += this.distanceMatrix[from][to] || Infinity;
-    }
-    return totalDistance;
-  }
-}
-
-/**
- * 가장 가까운 이웃 알고리즘 (Nearest Neighbor)
- * 빠른 초기 해 생성용
- */
-export class NearestNeighborOptimizer {
-  constructor(distanceMatrix, locations) {
-    this.distanceMatrix = distanceMatrix;
-    this.locations = locations;
-  }
-
-  /**
-   * 가장 가까운 이웃 알고리즘으로 초기 경로 생성
-   * @param {number} startIndex - 시작점 인덱스
-   * @param {number} endIndex - 끝점 인덱스
-   * @returns {number[]} 경로 인덱스 배열
-   */
-  generateInitialRoute(startIndex, endIndex) {
-    const unvisited = new Set();
-    const route = [startIndex];
-
-    // 시작점과 끝점을 제외한 모든 점을 unvisited에 추가
-    for (let i = 0; i < this.locations.length; i++) {
-      if (i !== startIndex && i !== endIndex) {
-        unvisited.add(i);
-      }
-    }
-
-    let currentIndex = startIndex;
-
-    // 가장 가까운 미방문 노드를 찾아 방문
-    while (unvisited.size > 0) {
-      let nearestIndex = -1;
-      let nearestDistance = Infinity;
-
-      for (const index of unvisited) {
-        const distance = this.distanceMatrix[currentIndex][index];
-        if (distance < nearestDistance) {
-          nearestDistance = distance;
-          nearestIndex = index;
-        }
-      }
-
-      if (nearestIndex !== -1) {
-        route.push(nearestIndex);
-        unvisited.delete(nearestIndex);
-        currentIndex = nearestIndex;
-      } else {
-        break;
-      }
-    }
-
-    // 끝점 추가
-    route.push(endIndex);
-    return route;
-  }
-}
-
-/**
  * 혼합 최적화 전략
- * 소규모: 완전탐색, 중규모: 2-opt, 대규모: Nearest Neighbor + 2-opt
+ * 소규모: 직접 계산, 중규모: 완전탐색, 대규모: Branch & Bound
  */
 export class HybridOptimizer {
   /**
@@ -248,12 +116,7 @@ export class HybridOptimizer {
         method = 'brute_force';
         apiCalls = result?.apiCalls || 0;
       } else if (waypointCount <= 10) {
-        // Branch and Bound 최적화 (정확한 최적해 보장)
-        result = await HybridOptimizer.optimizeBranchAndBound(locations, getDirections, onProgress);
-        method = 'branch_and_bound';
-        apiCalls = result?.apiCalls || 0;
-      } else if (waypointCount <= 10) {
-        // Branch and Bound 최적화 (정확한 최적해 보장)
+        // Branch and Bound 최적화 (정확한 최적해 보장) - 4-10개 경유지
         result = await HybridOptimizer.optimizeBranchAndBound(locations, getDirections, onProgress);
         method = 'branch_and_bound';
         apiCalls = result?.apiCalls || 0;
@@ -521,84 +384,9 @@ export class HybridOptimizer {
     };
   }
 
-  /**
-   * 2-opt 최적화 (유클리드 거리 기반 필터링 적용)
-   */
-  static async optimize2Opt(locations, getDirections, onProgress = null) {
-    const n = locations.length;
 
-    // 유클리드 필터링 제거 - 모든 지점 사용
-    const filteredLocations = locations; // 모든 지점 사용
-    const filteredN = filteredLocations.length;
 
-    // 1단계: 필터링된 위치들에 대한 거리 행렬 구축
-    const distanceMatrix = await HybridOptimizer.buildDistanceMatrix(filteredLocations, getDirections, onProgress);
-    const apiCallsForMatrix = filteredN * (filteredN - 1) / 2; // 대칭이므로 절반만
 
-    // 2단계: Nearest Neighbor로 초기 경로 생성
-    const nnOptimizer = new NearestNeighborOptimizer(distanceMatrix, filteredLocations);
-    const initialRoute = nnOptimizer.generateInitialRoute(0, filteredN - 1);
-
-    // 3단계: 2-opt로 개선
-    const twoOptOptimizer = new TwoOptOptimizer(distanceMatrix, filteredLocations);
-    const optimized = twoOptOptimizer.optimize(initialRoute);
-
-    // 4단계: 거리 매트릭스를 사용하여 최종 결과 구성
-    const finalLocations = optimized.route.map(index => filteredLocations[index]);
-    
-    // 거리 매트릭스에서 총 거리와 시간 계산
-    let totalDistance = 0;
-    let totalTime = 0;
-    
-    for (let i = 0; i < optimized.route.length - 1; i++) {
-      const fromIndex = optimized.route[i];
-      const toIndex = optimized.route[i + 1];
-      const segment = distanceMatrix[fromIndex][toIndex];
-      if (segment && segment.distance && segment.time) {
-        totalDistance += segment.distance;
-        totalTime += segment.time;
-      }
-    }
-    
-    // 거리 매트릭스 데이터를 사용하여 결과 구성
-    const finalResult = {
-      totalDistance,
-      totalTime,
-      route: finalLocations.map(loc => ({
-        name: loc.name,
-        coords: loc.coords
-      }))
-    };
-    
-    return {
-      optimizedLocations: finalLocations,
-      routeData: finalResult,
-      optimizationMethod: '2-opt',
-      apiCalls: apiCallsForMatrix, // 거리 매트릭스 구성에만 API 사용
-      iterations: optimized.iterations,
-      distanceMatrix: distanceMatrix
-    };
-  }
-
-  /**
-   * 휴리스틱 최적화 (유클리드 거리 기반 필터링 적용)
-   */
-  static async optimizeHeuristic(locations, getDirections, onProgress = null) {
-    const n = locations.length;
-
-    // 유클리드 필터링 제거 - 모든 지점 사용
-    const filteredLocations = locations; // 모든 지점 사용
-    const filteredN = filteredLocations.length;
-    
-    // 간단한 구현: Nearest Neighbor만 사용
-    const sampleSize = Math.min(filteredN, 15); // 최대 15개 지점만 샘플링
-    
-    // 거리 기반 샘플링 (시작/끝점 포함)
-    const sampledLocations = HybridOptimizer.sampleLocations(filteredLocations, sampleSize);
-    
-    // 샘플에 대해 2-opt 적용
-    return await HybridOptimizer.optimize2Opt(sampledLocations, getDirections, onProgress);
-  }
 
   /**
    * 거리 행렬 구축 (대칭성 이용하여 API 호출 최소화)
@@ -652,29 +440,6 @@ export class HybridOptimizer {
     return matrix;
   }
 
-  /**
-   * 위치 샘플링 (거리 기반)
-   */
-  static sampleLocations(locations, sampleSize) {
-    if (locations.length <= sampleSize) {
-      return locations;
-    }
-
-    const sampled = [locations[0]]; // 시작점 포함
-    const remaining = locations.slice(1, -1); // 중간점들
-    const end = locations[locations.length - 1]; // 끝점
-
-    // 거리 기반 샘플링 (간단한 구현)
-    const step = Math.max(1, Math.floor(remaining.length / (sampleSize - 2)));
-    for (let i = 0; i < remaining.length; i += step) {
-      if (sampled.length < sampleSize - 1) {
-        sampled.push(remaining[i]);
-      }
-    }
-
-    sampled.push(end); // 끝점 포함
-    return sampled;
-  }
 }
 
 /**
