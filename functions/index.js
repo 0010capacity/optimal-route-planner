@@ -49,7 +49,7 @@ app.post('/api/directions', async (req, res) => {
     // 입력 검증
     if (!coordsArray || !Array.isArray(coordsArray) || coordsArray.length < 2) {
       console.log(`[${new Date().toISOString()}] Invalid coordinates array:`, coordsArray);
-      return res.status(400).json({ error: 'Invalid coordinates array' });
+      return res.status(400).json({ error: 'Invalid coordinates array - must have at least 2 points' });
     }
 
     if (!isValidCoordinateArray(coordsArray)) {

@@ -242,10 +242,15 @@ export class HybridOptimizer {
         result = await HybridOptimizer.optimizeTwoPoints(locations, getDirections, onProgress);
         method = 'direct';
         apiCalls = 1;
-      } else if (waypointCount <= 8) {
-        // Brute Force 최적화 (완전 탐색으로 정확한 최적해 보장)
+      } else if (waypointCount <= 3) {
+        // Brute Force 최적화 (완전 탐색으로 정확한 최적해 보장) - 3개 경유지까지만
         result = await HybridOptimizer.optimizeBruteForce(locations, getDirections, onProgress);
         method = 'brute_force';
+        apiCalls = result?.apiCalls || 0;
+      } else if (waypointCount <= 10) {
+        // Branch and Bound 최적화 (정확한 최적해 보장)
+        result = await HybridOptimizer.optimizeBranchAndBound(locations, getDirections, onProgress);
+        method = 'branch_and_bound';
         apiCalls = result?.apiCalls || 0;
       } else if (waypointCount <= 10) {
         // Branch and Bound 최적화 (정확한 최적해 보장)
@@ -319,18 +324,42 @@ export class HybridOptimizer {
       return null;
     }
 
-    // 3단계: 최적 경로로 실제 데이터 가져오기 (1번의 API 호출)
+    // 3단계: 거리 행렬 데이터로 최종 결과 구성 (API 호출 없음)
     const finalLocations = bbResult.route.map(index => filteredLocations[index]);
-    const coordsArray = finalLocations.map(loc => loc.coords);
-    const namesArray = finalLocations.map(loc => loc.name);
+    const totalTime = bbResult.totalDistance; // Branch & Bound에서 계산된 총 시간
+    const totalDistance = bbResult.totalDistance;
+    
+    // 경로 포인트는 각 지점의 좌표로 구성
+    const path = finalLocations.map(loc => loc.coords);
+    
+    // 구간별 시간과 거리 계산
+    const segmentTimes = [];
+    const segmentDistances = [];
+    
+    for (let i = 0; i < bbResult.route.length - 1; i++) {
+      const from = bbResult.route[i];
+      const to = bbResult.route[i + 1];
+      const segmentTime = distanceMatrix[from][to] || 0;
+      segmentTimes.push(segmentTime);
+      segmentDistances.push(segmentTime); // 시간을 거리로 사용
+    }
 
-    const finalResult = await getDirections(coordsArray, namesArray, 3, onProgress);
+    const finalResult = {
+      totalTime: totalTime,
+      totalDistance: totalDistance,
+      path: path,
+      segmentTimes: segmentTimes,
+      segmentDistances: segmentDistances,
+      tollFare: 0,
+      taxiFare: 0,
+      fuelPrice: 0
+    };
 
     return {
       optimizedLocations: finalLocations,
       routeData: finalResult,
       optimizationMethod: 'branch_and_bound',
-      apiCalls: apiCallsForMatrix + 1,
+      apiCalls: apiCallsForMatrix,  // API 호출은 거리 행렬 구축용만
       nodesExplored: bbResult.nodesExplored,
       duration: bbResult.duration,
       distanceMatrix: distanceMatrix
@@ -338,51 +367,94 @@ export class HybridOptimizer {
   }
 
   /**
-   * 완전탐색 최적화 (유클리드 거리 기반 필터링 적용)
+   * 완전탐색 최적화 (거리 행렬 기반)
    */
   static async optimizeBruteForce(locations, getDirections, onProgress = null) {
-    const start = locations[0];
-    const end = locations[locations.length - 1];
-    const waypoints = locations.slice(1, -1);
+    const n = locations.length;
+    const filteredLocations = locations; // 모든 지점 사용
+    const filteredN = filteredLocations.length;
 
-    // 유클리드 필터링 제거 - 최적해 보장을 위해 모든 순열 사용
-    const filteredPermutations = getPermutations(waypoints); // 모든 순열 사용
+    // 1단계: 거리 행렬 구축 (O(n²) API 호출)
+    const distanceMatrix = await HybridOptimizer.buildDistanceMatrix(filteredLocations, getDirections, onProgress);
+    const apiCallsForMatrix = filteredN * (filteredN - 1) / 2; // 대칭이므로 절반만
 
+    // 2단계: 모든 순열에 대해 거리 행렬을 이용하여 비용 계산
+    const waypoints = filteredLocations.slice(1, -1); // 시작점과 끝점 제외한 경유지들
+    const filteredPermutations = getPermutations(waypoints);
+    
     let bestRoute = null;
     let bestTime = Infinity;
-    let apiCallCount = 0;
+    let bestRouteIndices = null;
 
     for (const perm of filteredPermutations) {
-      const currentLocations = [start, ...perm, end];
-      const coordsArray = currentLocations.map(loc => loc.coords);
-      const namesArray = currentLocations.map(loc => loc.name);
-
-      const result = await getDirections(coordsArray, namesArray, 3, onProgress);
-      apiCallCount++;
+      // 순열에 시작점(0)과 끝점(n-1) 추가
+      const routeIndices = [0, ...perm.map(loc => filteredLocations.indexOf(loc)), filteredN - 1];
+      
+      // 거리 행렬을 사용하여 총 시간 계산
+      let totalTime = 0;
+      for (let i = 0; i < routeIndices.length - 1; i++) {
+        const from = routeIndices[i];
+        const to = routeIndices[i + 1];
+        totalTime += distanceMatrix[from][to] || Infinity;
+      }
 
       // 진행률 업데이트
       if (onProgress) {
-        onProgress(apiCallCount, filteredPermutations.length);
+        const currentProgress = apiCallsForMatrix + (filteredPermutations.indexOf(perm) + 1);
+        const totalProgress = apiCallsForMatrix + filteredPermutations.length;
+        onProgress(currentProgress, totalProgress);
       }
 
-      if (result && result.totalTime < bestTime) {
-        bestTime = result.totalTime;
-        bestRoute = {
-          optimizedLocations: currentLocations,
-          routeData: result,
-          waypointsOrder: perm
-        };
+      if (totalTime < bestTime) {
+        bestTime = totalTime;
+        bestRouteIndices = routeIndices;
+        bestRoute = routeIndices.map(index => filteredLocations[index]);
       }
     }
 
-    if (bestRoute) {
-      return {
-        ...bestRoute,
-        optimizationMethod: 'brute_force',
-        apiCalls: apiCallCount
-      };
+    if (!bestRoute) {
+      console.error('Brute force optimization failed');
+      return null;
     }
-    return null;
+
+    // 3단계: 거리 행렬 데이터로 최종 결과 구성 (API 호출 없음)
+    const totalTime = bestTime;
+    const totalDistance = bestTime; // 시간을 거리로 사용 (실제로는 시간 기반)
+    
+    // 경로 포인트는 각 지점의 좌표로 구성
+    const path = bestRoute.map(loc => loc.coords);
+    
+    // 구간별 시간과 거리 계산
+    const segmentTimes = [];
+    const segmentDistances = [];
+    
+    for (let i = 0; i < bestRouteIndices.length - 1; i++) {
+      const from = bestRouteIndices[i];
+      const to = bestRouteIndices[i + 1];
+      const segmentTime = distanceMatrix[from][to] || 0;
+      segmentTimes.push(segmentTime);
+      segmentDistances.push(segmentTime); // 시간을 거리로 사용
+    }
+
+    const finalResult = {
+      totalTime: totalTime,
+      totalDistance: totalDistance,
+      path: path,
+      segmentTimes: segmentTimes,
+      segmentDistances: segmentDistances,
+      tollFare: 0,
+      taxiFare: 0,
+      fuelPrice: 0
+    };
+
+    return {
+      optimizedLocations: bestRoute,
+      routeData: finalResult,
+      optimizationMethod: 'brute_force',
+      apiCalls: apiCallsForMatrix,  // API 호출은 거리 행렬 구축용만
+      iterations: filteredPermutations.length,
+      distanceMatrix: distanceMatrix
+    };
   }
 
   /**
@@ -408,18 +480,42 @@ export class HybridOptimizer {
       return null;
     }
 
-    // 3단계: 최적 경로로 실제 데이터 가져오기 (1번의 API 호출)
+    // 3단계: 거리 행렬 데이터로 최종 결과 구성 (API 호출 없음)
     const finalLocations = tspResult.route.map(index => filteredLocations[index]);
-    const coordsArray = finalLocations.map(loc => loc.coords);
-    const namesArray = finalLocations.map(loc => loc.name);
+    const totalTime = tspResult.totalDistance;
+    const totalDistance = tspResult.totalDistance;
+    
+    // 경로 포인트는 각 지점의 좌표로 구성
+    const path = finalLocations.map(loc => loc.coords);
+    
+    // 구간별 시간과 거리 계산
+    const segmentTimes = [];
+    const segmentDistances = [];
+    
+    for (let i = 0; i < tspResult.route.length - 1; i++) {
+      const from = tspResult.route[i];
+      const to = tspResult.route[i + 1];
+      const segmentTime = distanceMatrix[from][to] || 0;
+      segmentTimes.push(segmentTime);
+      segmentDistances.push(segmentTime);
+    }
 
-    const finalResult = await getDirections(coordsArray, namesArray, 3, onProgress);
+    const finalResult = {
+      totalTime: totalTime,
+      totalDistance: totalDistance,
+      path: path,
+      segmentTimes: segmentTimes,
+      segmentDistances: segmentDistances,
+      tollFare: 0,
+      taxiFare: 0,
+      fuelPrice: 0
+    };
 
     return {
       optimizedLocations: finalLocations,
       routeData: finalResult,
       optimizationMethod: 'tsp_dp',
-      apiCalls: apiCallsForMatrix + 1,
+      apiCalls: apiCallsForMatrix,  // API 호출은 거리 행렬 구축용만
       iterations: 0, // DP는 반복이 없음
       distanceMatrix: distanceMatrix
     };
@@ -447,18 +543,38 @@ export class HybridOptimizer {
     const twoOptOptimizer = new TwoOptOptimizer(distanceMatrix, filteredLocations);
     const optimized = twoOptOptimizer.optimize(initialRoute);
 
-    // 4단계: 최적 경로로 실제 데이터 가져오기 (1번의 API 호출)
+    // 4단계: 거리 매트릭스를 사용하여 최종 결과 구성
     const finalLocations = optimized.route.map(index => filteredLocations[index]);
-    const coordsArray = finalLocations.map(loc => loc.coords);
-    const namesArray = finalLocations.map(loc => loc.name);
     
-    const finalResult = await getDirections(coordsArray, namesArray, 3, onProgress);
+    // 거리 매트릭스에서 총 거리와 시간 계산
+    let totalDistance = 0;
+    let totalTime = 0;
+    
+    for (let i = 0; i < optimized.route.length - 1; i++) {
+      const fromIndex = optimized.route[i];
+      const toIndex = optimized.route[i + 1];
+      const segment = distanceMatrix[fromIndex][toIndex];
+      if (segment && segment.distance && segment.time) {
+        totalDistance += segment.distance;
+        totalTime += segment.time;
+      }
+    }
+    
+    // 거리 매트릭스 데이터를 사용하여 결과 구성
+    const finalResult = {
+      totalDistance,
+      totalTime,
+      route: finalLocations.map(loc => ({
+        name: loc.name,
+        coords: loc.coords
+      }))
+    };
     
     return {
       optimizedLocations: finalLocations,
       routeData: finalResult,
       optimizationMethod: '2-opt',
-      apiCalls: apiCallsForMatrix + 1,
+      apiCalls: apiCallsForMatrix, // 거리 매트릭스 구성에만 API 사용
       iterations: optimized.iterations,
       distanceMatrix: distanceMatrix
     };
