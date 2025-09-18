@@ -396,13 +396,13 @@ export class HybridOptimizer {
     const n = locations.length;
     const cacheKey = generateDistanceMatrixCacheKey(locations);
 
-    // 캐시에서 거리 행렬 확인
-    const cachedMatrix = apiCache.get('distance_matrix', { locations: cacheKey });
-    if (cachedMatrix) {
-      console.log('🎯 Cache HIT! Using cached distance matrix');
-      return cachedMatrix;
-    }
-    console.log('💾 Cache MISS! Computing new distance matrix');
+    // 캐시에서 거리 행렬 확인 (임시로 캐시 비활성화)
+    // const cachedMatrix = apiCache.get('distance_matrix', { locations: cacheKey });
+    // if (cachedMatrix) {
+    //   console.log('🎯 Cache HIT! Using cached distance matrix');
+    //   return cachedMatrix;
+    // }
+    console.log('💾 Computing new distance matrix (cache disabled)');
 
     const matrix = Array(n).fill().map(() => Array(n).fill(0));
     const batchSize = 16; // 배치 크기 증가 (성능 최적화)
@@ -469,8 +469,8 @@ export class HybridOptimizer {
       }
     }
 
-    // 계산된 행렬을 캐시에 저장
-    apiCache.set('distance_matrix', { locations: cacheKey }, matrix);
+    // 계산된 행렬을 캐시에 저장 (임시로 캐시 비활성화)
+    // apiCache.set('distance_matrix', { locations: cacheKey }, matrix);
 
     return matrix;
   }

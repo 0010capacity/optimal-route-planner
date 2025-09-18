@@ -135,12 +135,14 @@ function App() {
   // Update geocoded locations state
   useEffect(() => {
     setGeocodedLocations(memoizedGeocodedLocations);
-    // 경유지가 변경되면 최적화된 경로를 리셋
-    setOptimizedRoute(null);
-  }, [memoizedGeocodedLocations, setGeocodedLocations, setOptimizedRoute]);
+    // 경유지가 변경되면 최적화된 경로를 리셋 (수동 변경시에만)
+    if (!isOptimizing) {
+      setOptimizedRoute(null);
+    }
+  }, [memoizedGeocodedLocations, setGeocodedLocations, setOptimizedRoute, isOptimizing]);
 
-  // Use route calculation hook
-  useRouteCalculation(memoizedGeocodedLocations, isOptimizing, setOptimizedRoute);
+  // Use route calculation hook - only when no optimized route exists
+  useRouteCalculation(memoizedGeocodedLocations, isOptimizing, setOptimizedRoute, optimizedRoute);
 
     // Use handlers hook
   const {
@@ -268,14 +270,3 @@ function App() {
 }
 
 export default App;
-console.log('🔍 Starting route optimization...');
-console.log('📍 Current locations:', locations);
-console.log('📍 Current geocodedLocations:', geocodedLocations);
-console.log('✅ Valid locations for optimization:', validLocations);
-console.log('🚀 Calling HybridOptimizer.optimize...');
-console.log('✨ Optimization result:', { optimizedLocations, optimizationMethod, apiCalls });
-console.log('🔢 Valid location indices:', validIndices);
-console.log('🔄 Optimized locations:', optimizedLocations);
-console.log('📝 Updating location at index...', locations[locationIndex], '->', optimizedLoc);
-console.log('📋 Final newLocations:', newLocations);
-console.log('🎉 Route optimization completed successfully!');
