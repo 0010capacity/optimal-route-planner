@@ -389,7 +389,7 @@ export class HybridOptimizer {
 
 
   /**
-   * 거리 행렬 구축 (대칭성 이용하여 API 호출 최소화)
+   * 거리 행렬 구축 (배치 처리로 API 호출 최적화)
    */
   static async buildDistanceMatrix(locations, getDirections, onProgress = null) {
     const n = locations.length;
@@ -402,6 +402,7 @@ export class HybridOptimizer {
     }
 
     const matrix = Array(n).fill().map(() => Array(n).fill(0));
+    const batchSize = 10; // 배치 크기
     let apiCallCount = 0;
 
     // 대각선은 0으로 설정
@@ -409,21 +410,42 @@ export class HybridOptimizer {
       matrix[i][i] = 0;
     }
 
-    // 상삼각 행렬만 계산하고 대칭 복사
+    // 상삼각 행렬의 모든 API 호출을 수집
+    const apiCalls = [];
     for (let i = 0; i < n; i++) {
       for (let j = i + 1; j < n; j++) {
+        apiCalls.push({ i, j });
+      }
+    }
+
+    const totalCalls = apiCalls.length;
+
+    // 배치별로 API 호출 처리
+    for (let batchStart = 0; batchStart < apiCalls.length; batchStart += batchSize) {
+      const batchEnd = Math.min(batchStart + batchSize, apiCalls.length);
+      const batch = apiCalls.slice(batchStart, batchEnd);
+
+      // 현재 배치의 모든 API 호출을 Promise.all로 병렬 처리
+      const promises = batch.map(async ({ i, j }) => {
         const coordsArray = [locations[i].coords, locations[j].coords];
         const namesArray = [locations[i].name, locations[j].name];
-
-        const result = await getDirections(coordsArray, namesArray, 3, onProgress);
-        apiCallCount++;
-
-        // 진행률 업데이트
-        if (onProgress) {
-          const totalCalls = n * (n - 1) / 2; // 상삼각 행렬의 총 API 호출 수
-          onProgress(apiCallCount, totalCalls);
+        
+        try {
+          const result = await getDirections(coordsArray, namesArray, 3, onProgress);
+          return { i, j, result };
+        } catch (error) {
+          console.warn(`API call failed for ${i}-${j}:`, error);
+          return { i, j, result: null };
         }
+      });
 
+      // 배치 처리 완료 대기
+      const results = await Promise.all(promises);
+
+      // 결과를 매트릭스에 반영
+      results.forEach(({ i, j, result }) => {
+        apiCallCount++;
+        
         if (result) {
           matrix[i][j] = result.totalTime;
           matrix[j][i] = result.totalTime; // 대칭 복사
@@ -431,6 +453,16 @@ export class HybridOptimizer {
           matrix[i][j] = Infinity;
           matrix[j][i] = Infinity;
         }
+      });
+
+      // 진행률 업데이트
+      if (onProgress) {
+        onProgress(apiCallCount, totalCalls);
+      }
+
+      // 배치 간 짧은 지연 (API 서버 부하 방지)
+      if (batchEnd < apiCalls.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
 
