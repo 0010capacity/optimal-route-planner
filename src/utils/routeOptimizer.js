@@ -174,12 +174,12 @@ export class HybridOptimizer {
     const filteredLocations = locations; // 모든 지점 사용
     const filteredN = filteredLocations.length;
 
-    // 1단계: 거리 행렬 구축 (O(n²) API 호출)
-    const distanceMatrix = await HybridOptimizer.buildDistanceMatrix(filteredLocations, getDirections, onProgress);
+    // 1단계: 시간 매트릭스 구축 (O(n²) API 호출)
+    const timeMatrix = await HybridOptimizer.buildTimeMatrix(filteredLocations, getDirections, onProgress);
     const apiCallsForMatrix = filteredN * (filteredN - 1) / 2; // 대칭이므로 절반만
 
     // 2단계: Branch and Bound 알고리즘 적용
-    const bbOptimizer = new BranchAndBoundOptimizer(distanceMatrix, filteredLocations);
+    const bbOptimizer = new BranchAndBoundOptimizer(timeMatrix, filteredLocations);
     const bbResult = bbOptimizer.optimize(0, filteredN - 1);
 
     if (!bbResult) {
@@ -187,9 +187,9 @@ export class HybridOptimizer {
       return null;
     }
 
-    // 3단계: 거리 행렬 데이터로 최종 결과 구성 (API 호출 없음)
+    // 3단계: 시간 매트릭스 데이터로 최종 결과 구성 (API 호출 없음)
     const finalLocations = bbResult.route.map(index => filteredLocations[index]);
-    const totalTime = bbResult.totalDistance; // Branch & Bound에서 계산된 총 시간
+    const totalTime = bbResult.totalDistance; // Branch & Bound에서 계산된 총 시간 (변수명 주의: totalDistance이지만 실제는 시간)
     const totalDistance = bbResult.totalDistance;
     
     // 경로 포인트는 각 지점의 좌표로 구성
@@ -202,7 +202,7 @@ export class HybridOptimizer {
     for (let i = 0; i < bbResult.route.length - 1; i++) {
       const from = bbResult.route[i];
       const to = bbResult.route[i + 1];
-      const segmentTime = distanceMatrix[from][to] || 0;
+      const segmentTime = timeMatrix[from][to] || 0;
       segmentTimes.push(segmentTime);
       segmentDistances.push(segmentTime); // 시간을 거리로 사용
     }
@@ -222,10 +222,10 @@ export class HybridOptimizer {
       optimizedLocations: finalLocations,
       routeData: finalResult,
       optimizationMethod: 'branch_and_bound',
-      apiCalls: apiCallsForMatrix,  // API 호출은 거리 행렬 구축용만
+      apiCalls: apiCallsForMatrix,  // API 호출은 시간 매트릭스 구축용만
       nodesExplored: bbResult.nodesExplored,
       duration: bbResult.duration,
-      distanceMatrix: distanceMatrix
+      timeMatrix: timeMatrix // 명확한 시간 매트릭스 명칭
     };
   }
 
@@ -237,11 +237,11 @@ export class HybridOptimizer {
     const filteredLocations = locations; // 모든 지점 사용
     const filteredN = filteredLocations.length;
 
-    // 1단계: 거리 행렬 구축 (O(n²) API 호출)
-    const distanceMatrix = await HybridOptimizer.buildDistanceMatrix(filteredLocations, getDirections, onProgress);
+    // 1단계: 시간 매트릭스 구축 (O(n²) API 호출)
+    const timeMatrix = await HybridOptimizer.buildTimeMatrix(filteredLocations, getDirections, onProgress);
     const apiCallsForMatrix = filteredN * (filteredN - 1) / 2; // 대칭이므로 절반만
 
-    // 2단계: 모든 순열에 대해 거리 행렬을 이용하여 비용 계산
+    // 2단계: 모든 순열에 대해 시간 매트릭스를 이용하여 비용 계산
     const waypoints = filteredLocations.slice(1, -1); // 시작점과 끝점 제외한 경유지들
     const filteredPermutations = getPermutations(waypoints);
     
@@ -253,12 +253,12 @@ export class HybridOptimizer {
       // 순열에 시작점(0)과 끝점(n-1) 추가
       const routeIndices = [0, ...perm.map(loc => filteredLocations.indexOf(loc)), filteredN - 1];
       
-      // 거리 행렬을 사용하여 총 시간 계산
+      // 시간 매트릭스를 사용하여 총 시간 계산
       let totalTime = 0;
       for (let i = 0; i < routeIndices.length - 1; i++) {
         const from = routeIndices[i];
         const to = routeIndices[i + 1];
-        totalTime += distanceMatrix[from][to] || Infinity;
+        totalTime += timeMatrix[from][to] || Infinity;
       }
 
       // 진행률 업데이트
@@ -280,7 +280,7 @@ export class HybridOptimizer {
       return null;
     }
 
-    // 3단계: 거리 행렬 데이터로 최종 결과 구성 (API 호출 없음)
+    // 3단계: 시간 매트릭스 데이터로 최종 결과 구성 (API 호출 없음)
     const totalTime = bestTime;
     const totalDistance = bestTime; // 시간을 거리로 사용 (실제로는 시간 기반)
     
@@ -294,7 +294,7 @@ export class HybridOptimizer {
     for (let i = 0; i < bestRouteIndices.length - 1; i++) {
       const from = bestRouteIndices[i];
       const to = bestRouteIndices[i + 1];
-      const segmentTime = distanceMatrix[from][to] || 0;
+      const segmentTime = timeMatrix[from][to] || 0;
       segmentTimes.push(segmentTime);
       segmentDistances.push(segmentTime); // 시간을 거리로 사용
     }
@@ -314,9 +314,9 @@ export class HybridOptimizer {
       optimizedLocations: bestRoute,
       routeData: finalResult,
       optimizationMethod: 'brute_force',
-      apiCalls: apiCallsForMatrix,  // API 호출은 거리 행렬 구축용만
+      apiCalls: apiCallsForMatrix,  // API 호출은 시간 행렬 구축용만
       iterations: filteredPermutations.length,
-      distanceMatrix: distanceMatrix
+      distanceMatrix: timeMatrix
     };
   }
 
@@ -330,12 +330,12 @@ export class HybridOptimizer {
     const filteredLocations = locations; // 모든 지점 사용
     const filteredN = filteredLocations.length;
 
-    // 1단계: 거리 행렬 구축 (O(n²) API 호출)
-    const distanceMatrix = await HybridOptimizer.buildDistanceMatrix(filteredLocations, getDirections, onProgress);
+    // 1단계: 시간 행렬 구축 (O(n²) API 호출)
+    const timeMatrix = await HybridOptimizer.buildTimeMatrix(filteredLocations, getDirections, onProgress);
     const apiCallsForMatrix = filteredN * (filteredN - 1) / 2; // 대칭이므로 절반만
 
     // 2단계: TSP DP 알고리즘 적용
-    const tspOptimizer = new TSPOptimizer(distanceMatrix, filteredLocations);
+    const tspOptimizer = new TSPOptimizer(timeMatrix, filteredLocations);
     const tspResult = tspOptimizer.optimize();
 
     if (!tspResult) {
@@ -343,7 +343,7 @@ export class HybridOptimizer {
       return null;
     }
 
-    // 3단계: 거리 행렬 데이터로 최종 결과 구성 (API 호출 없음)
+    // 3단계: 시간 매트릭스 데이터로 최종 결과 구성 (API 호출 없음)
     const finalLocations = tspResult.route.map(index => filteredLocations[index]);
     const totalTime = tspResult.totalDistance;
     const totalDistance = tspResult.totalDistance;
@@ -358,7 +358,7 @@ export class HybridOptimizer {
     for (let i = 0; i < tspResult.route.length - 1; i++) {
       const from = tspResult.route[i];
       const to = tspResult.route[i + 1];
-      const segmentTime = distanceMatrix[from][to] || 0;
+      const segmentTime = timeMatrix[from][to] || 0;
       segmentTimes.push(segmentTime);
       segmentDistances.push(segmentTime);
     }
@@ -378,9 +378,9 @@ export class HybridOptimizer {
       optimizedLocations: finalLocations,
       routeData: finalResult,
       optimizationMethod: 'tsp_dp',
-      apiCalls: apiCallsForMatrix,  // API 호출은 거리 행렬 구축용만
+      apiCalls: apiCallsForMatrix,  // API 호출은 시간 행렬 구축용만
       iterations: 0, // DP는 반복이 없음
-      distanceMatrix: distanceMatrix
+      distanceMatrix: timeMatrix
     };
   }
 
@@ -389,9 +389,10 @@ export class HybridOptimizer {
 
 
   /**
-   * 거리 행렬 구축 (배치 처리로 API 호출 최적화)
+   * 시간 매트릭스 구축 (배치 처리로 API 호출 최적화)
+   * 각 지점 간의 이동 시간을 계산하여 대칭 매트릭스 생성
    */
-  static async buildDistanceMatrix(locations, getDirections, onProgress = null) {
+  static async buildTimeMatrix(locations, getDirections, onProgress = null) {
     const n = locations.length;
     const cacheKey = generateDistanceMatrixCacheKey(locations);
 
@@ -479,8 +480,8 @@ export class HybridOptimizer {
  * 정확한 최적해를 보장하지만 n이 클 경우 계산 시간이 오래 걸림
  */
 export class TSPOptimizer {
-  constructor(distanceMatrix, locations) {
-    this.distanceMatrix = distanceMatrix;
+  constructor(timeMatrix, locations) {
+    this.timeMatrix = timeMatrix;
     this.locations = locations;
     this.n = locations.length;
   }
@@ -488,7 +489,7 @@ export class TSPOptimizer {
   /**
    * TSP DP 알고리즘으로 최적 경로 계산
    * 시작점(0)과 끝점(n-1)을 고려한 TSP
-   * @returns {Object} 최적화된 경로와 총 거리
+   * @returns {Object} 최적화된 경로와 총 시간
    */
   optimize() {
     const startTime = performance.now();
@@ -513,7 +514,7 @@ export class TSPOptimizer {
           if ((mask & (1 << next)) !== 0) continue; // 이미 방문한 도시
 
           const newMask = mask | (1 << next);
-          const cost = this.distanceMatrix[pos][next];
+          const cost = this.timeMatrix[pos][next];
 
           if (cost < INF && dp[mask][pos] + cost < dp[newMask][next]) {
             dp[newMask][next] = dp[mask][pos] + cost;
@@ -572,16 +573,16 @@ export class TSPOptimizer {
   }
 
   /**
-   * 경로의 총 거리 계산 (디버깅용)
+   * 경로의 총 시간 계산 (디버깅용)
    */
   calculateRouteDistance(route) {
-    let totalDistance = 0;
+    let totalTime = 0;
     for (let i = 0; i < route.length - 1; i++) {
       const from = route[i];
       const to = route[i + 1];
-      totalDistance += this.distanceMatrix[from][to] || Infinity;
+      totalTime += this.timeMatrix[from][to] || Infinity;
     }
-    return totalDistance;
+    return totalTime;
   }
 }
 
@@ -590,8 +591,8 @@ export class TSPOptimizer {
  * 정확한 최적해를 보장하면서 TSP DP보다 효율적인 가지치기 사용
  */
 export class BranchAndBoundOptimizer {
-  constructor(distanceMatrix, locations) {
-    this.distanceMatrix = distanceMatrix;
+  constructor(timeMatrix, locations) {
+    this.timeMatrix = timeMatrix;
     this.locations = locations;
     this.n = locations.length;
     this.bestCost = Infinity;
@@ -603,7 +604,7 @@ export class BranchAndBoundOptimizer {
    * Branch and Bound 알고리즘으로 최적 경로 계산
    * @param {number} startIndex - 시작점 인덱스
    * @param {number} endIndex - 끝점 인덱스
-   * @returns {Object} 최적화된 경로와 총 거리
+   * @returns {Object} 최적화된 경로와 총 시간
    */
   optimize(startIndex, endIndex) {
     const startTime = performance.now();
@@ -658,7 +659,7 @@ export class BranchAndBoundOptimizer {
 
     // 종료 조건: 모든 지점을 방문한 경우
     if (unvisited.size === 0) {
-      const finalCost = currentCost + this.distanceMatrix[currentPos][endIndex];
+      const finalCost = currentCost + this.timeMatrix[currentPos][endIndex];
       if (finalCost < this.bestCost) {
         this.bestCost = finalCost;
         this.bestRoute = [...currentRoute, endIndex];
@@ -676,8 +677,8 @@ export class BranchAndBoundOptimizer {
 
     // 다음 방문할 노드들 탐색 (가장 가까운 노드부터 우선 탐색)
     const candidates = Array.from(unvisited).sort((a, b) => {
-      const costA = this.distanceMatrix[currentPos][a];
-      const costB = this.distanceMatrix[currentPos][b];
+      const costA = this.timeMatrix[currentPos][a];
+      const costB = this.timeMatrix[currentPos][b];
       return costA - costB;
     });
 
@@ -685,7 +686,7 @@ export class BranchAndBoundOptimizer {
       const newUnvisited = new Set(unvisited);
       newUnvisited.delete(next);
 
-      const newCost = currentCost + this.distanceMatrix[currentPos][next];
+      const newCost = currentCost + this.timeMatrix[currentPos][next];
       const newRoute = [...currentRoute, next];
 
       this.branchAndBound(newRoute, newUnvisited, endIndex, newCost);
@@ -698,12 +699,12 @@ export class BranchAndBoundOptimizer {
    */
   calculateLowerBound(currentRoute, unvisited, endIndex, currentCost) {
     if (unvisited.size === 0) {
-      return currentCost + this.distanceMatrix[currentRoute[currentRoute.length - 1]][endIndex];
+      return currentCost + this.timeMatrix[currentRoute[currentRoute.length - 1]][endIndex];
     }
 
     // 1. 현재 위치에서 끝점까지의 최소 비용
     const currentPos = currentRoute[currentRoute.length - 1];
-    const toEndCost = this.distanceMatrix[currentPos][endIndex];
+    const toEndCost = this.timeMatrix[currentPos][endIndex];
 
     // 2. 방문하지 않은 노드들 간의 MST 비용 계산
     const remainingNodes = Array.from(unvisited);
@@ -719,10 +720,10 @@ export class BranchAndBoundOptimizer {
     for (const node of remainingNodes) {
       let minCost = Infinity;
       for (const visited of currentRoute) {
-        minCost = Math.min(minCost, this.distanceMatrix[visited][node]);
+        minCost = Math.min(minCost, this.timeMatrix[visited][node]);
       }
       // 끝점과의 거리도 고려
-      minCost = Math.min(minCost, this.distanceMatrix[node][endIndex]);
+      minCost = Math.min(minCost, this.timeMatrix[node][endIndex]);
       minConnectionCost += minCost;
     }
 
@@ -766,9 +767,9 @@ export class BranchAndBoundOptimizer {
       // 다른 방문하지 않은 노드들의 거리 업데이트
       for (let j = 0; j < n; j++) {
         if (!visited.has(j)) {
-          const actualNodeA = nodes[minIndex]; // 실제 distanceMatrix 인덱스
-          const actualNodeB = nodes[j];       // 실제 distanceMatrix 인덱스
-          const dist = this.distanceMatrix[actualNodeA][actualNodeB];
+          const actualNodeA = nodes[minIndex]; // 실제 timeMatrix 인덱스
+          const actualNodeB = nodes[j];       // 실제 timeMatrix 인덱스
+          const dist = this.timeMatrix[actualNodeA][actualNodeB];
           if (dist < distances[j]) {
             distances[j] = dist;
           }
