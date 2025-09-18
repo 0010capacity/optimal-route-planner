@@ -1,9 +1,10 @@
 import React from 'react';
+import { Icon } from './Icon';
 
 /**
  * 애플리케이션 Footer 컴포넌트
  */
-const Footer = () => {
+const Footer = ({ onPatchNotesClick }) => {
   return (
     <footer className="app-footer">
       <div className="footer-content">
@@ -18,6 +19,16 @@ const Footer = () => {
               <a href="mailto:0010capacity@gmail.com">
                 이메일
               </a>
+              {onPatchNotesClick && (
+                <button
+                  className="footer-patch-notes-btn"
+                  onClick={onPatchNotesClick}
+                  title="패치노트 보기"
+                >
+                  <Icon name="update" size={14} />
+                  패치노트
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -31,6 +42,45 @@ const Footer = () => {
           </div>
         </div>
       </div>
+
+      <style jsx>{`
+        .footer-patch-notes-btn {
+          background: none;
+          border: none;
+          color: #667eea;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+          padding: 4px 8px;
+          border-radius: 4px;
+          transition: background-color 0.2s;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+
+        .footer-patch-notes-btn:hover {
+          background: rgba(102, 126, 234, 0.1);
+        }
+
+        .footer-brand-links {
+          display: flex;
+          gap: 16px;
+          align-items: center;
+          margin-top: 8px;
+        }
+
+        .footer-brand-links a,
+        .footer-patch-notes-btn {
+          text-decoration: none;
+          color: #667eea;
+          transition: color 0.2s;
+        }
+
+        .footer-brand-links a:hover {
+          color: #5a67d8;
+        }
+      `}</style>
     </footer>
   );
 };

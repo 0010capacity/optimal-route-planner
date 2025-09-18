@@ -38,6 +38,11 @@ const Footer = dynamic(() => import('./components/Footer'), {
   loading: () => <div>Loading...</div>
 });
 
+const PatchNotesModal = dynamic(() => import('./components/PatchNotesModal'), {
+  ssr: false,
+  loading: () => null
+});
+
 function App() {
   const [toasts, setToasts] = useState([]);
 
@@ -49,6 +54,13 @@ function App() {
   const removeToast = useCallback((id) => {
     setToasts(prev => prev.filter(toast => toast.id !== id));
   }, []);
+
+  // 패치노트 훅 사용
+  const {
+    showPatchNotes,
+    openPatchNotes,
+    closePatchNotes
+  } = usePatchNotes();
 
   const {
     currentMode,
@@ -262,9 +274,14 @@ function App() {
         onMapSelect={handleMapSelect}
       />
 
-      <Footer />
+      <Footer onPatchNotesClick={openPatchNotes} />
 
       <ToastContainer toasts={toasts} removeToast={removeToast} />
+
+      <PatchNotesModal
+        isOpen={showPatchNotes}
+        onClose={closePatchNotes}
+      />
     </div>
   );
 }
