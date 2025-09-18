@@ -268,3 +268,14 @@ function App() {
 }
 
 export default App;
+console.log('🔍 Starting route optimization...');
+console.log('📍 Current locations:', locations);
+console.log('📍 Current geocodedLocations:', geocodedLocations);
+console.log('✅ Valid locations for optimization:', validLocations);
+console.log('🚀 Calling HybridOptimizer.optimize...');
+console.log('✨ Optimization result:', { optimizedLocations, optimizationMethod, apiCalls });
+console.log('🔢 Valid location indices:', validIndices);
+console.log('🔄 Optimized locations:', optimizedLocations);
+console.log('📝 Updating location at index...', locations[locationIndex], '->', optimizedLoc);
+console.log('📋 Final newLocations:', newLocations);
+console.log('🎉 Route optimization completed successfully!');

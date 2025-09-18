@@ -113,6 +113,10 @@ export const useAppHandlers = (
   }, [setEditingIndex, setCurrentMode, clearSearch]);
 
   const handleOptimizeRoute = useCallback(async () => {
+    console.log('🔍 Starting route optimization...');
+    console.log('📍 Current locations:', locations);
+    console.log('📍 Current geocodedLocations:', geocodedLocations);
+
     // Filter locations with valid coordinates
     const validLocations = geocodedLocations.filter(loc => {
       if (!loc.coords || !loc.coords.lat || !loc.coords.lng) return false;
@@ -122,6 +126,8 @@ export const useAppHandlers = (
       if (loc.coords.lng < 123 || loc.coords.lng > 133) return false;
       return true;
     });
+
+    console.log('✅ Valid locations for optimization:', validLocations);
 
     if (validLocations.length < 2) {
       console.warn(`Need at least two valid locations. Currently: ${validLocations.length}`);
@@ -159,26 +165,49 @@ export const useAppHandlers = (
         }
       } : null;
 
+      console.log('🚀 Calling HybridOptimizer.optimize...');
       // Use HybridOptimizer (minimize API calls)
       const result = await HybridOptimizer.optimize(validLocations, getDirections, onProgress);
 
       if (result) {
         const { optimizedLocations, routeData, optimizationMethod, apiCalls, iterations } = result;
+        console.log('✨ Optimization result:', { optimizedLocations, optimizationMethod, apiCalls });
 
         // Update locations with optimized order
-        // 출발점과 도착점을 고정하고 중간 경유지만 재배열
-        const startLocation = locations[0];
-        const endLocation = locations[locations.length - 1];
-        
-        // 최적화 결과에서 중간 경유지만 추출 (첫 번째와 마지막은 무시)
-        const optimizedWaypoints = optimizedLocations.slice(1, -1);
-        
-        // 새로운 locations 구성: [출발점, ...최적화된 경유지, 도착점]
-        const newLocations = [startLocation, ...optimizedWaypoints, endLocation];
-        
-        // locations 업데이트
+        // geocodedLocations의 순서를 기반으로 locations 재배열
+        const newLocations = [...locations];
+
+        // 유효한 위치들의 인덱스를 찾기
+        const validIndices = [];
+        locations.forEach((loc, index) => {
+          if (loc.name && loc.name.trim() !== '' &&
+              loc.coords && loc.coords.lat && loc.coords.lng &&
+              !isNaN(loc.coords.lat) && !isNaN(loc.coords.lng) &&
+              loc.coords.lat >= 32 && loc.coords.lat <= 40 &&
+              loc.coords.lng >= 123 && loc.coords.lng <= 133) {
+            validIndices.push(index);
+          }
+        });
+
+        console.log('🔢 Valid location indices:', validIndices);
+        console.log('🔄 Optimized locations:', optimizedLocations);
+
+        // 최적화된 순서대로 유효한 위치들을 재배열
+        optimizedLocations.forEach((optimizedLoc, optIndex) => {
+          if (optIndex < validIndices.length) {
+            const locationIndex = validIndices[optIndex];
+            console.log(`📝 Updating location at index ${locationIndex}:`, locations[locationIndex], '->', optimizedLoc);
+            newLocations[locationIndex] = {
+              ...locations[locationIndex], // 원본 정보 유지
+              name: optimizedLoc.name,
+              coords: optimizedLoc.coords
+            };
+          }
+        });
+
+        console.log('📋 Final newLocations:', newLocations);        // locations 업데이트
         updateLocations(newLocations);
-        
+
         // geocodedLocations는 useAppState의 useEffect에서 자동으로 업데이트됨
         setDistanceMatrix(result.distanceMatrix);
 
@@ -187,6 +216,8 @@ export const useAppHandlers = (
         const hours = Math.floor(totalMinutes / 60);
         const minutes = totalMinutes % 60;
         const timeString = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+
+        console.log('🎉 Route optimization completed successfully!');
 
         // Show success toast
         if (onToast) {
@@ -205,9 +236,7 @@ export const useAppHandlers = (
         onProgressUpdate({ current: 0, total: 0, message: '' });
       }
     }
-  }, [geocodedLocations, locations, setOptimizedRoute, setIsOptimizing, setDistanceMatrix, updateLocations, onToast]);
-
-  const handleShareRoute = useCallback(() => {
+  }, [geocodedLocations, locations, setOptimizedRoute, setIsOptimizing, setDistanceMatrix, updateLocations, onToast]);  const handleShareRoute = useCallback(() => {
     const validLocations = geocodedLocations.filter(loc =>
       loc.coords && loc.coords.lat && loc.coords.lng &&
       !isNaN(loc.coords.lat) && !isNaN(loc.coords.lng)

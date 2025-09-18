@@ -72,8 +72,8 @@ class ApiCache {
   }
 }
 
-// 전역 API 캐시 인스턴스
-export const apiCache = new ApiCache();
+// 전역 API 캐시 인스턴스 (TTL 30분으로 증가)
+export const apiCache = new ApiCache(100, 30 * 60 * 1000);
 
 /**
  * 캐시된 API 호출을 위한 래퍼 함수
@@ -115,11 +115,17 @@ export const generateRouteCacheKey = (locations) => {
 };
 
 /**
- * 거리 행렬 캐시 키 생성
+ * 거리 행렬 캐시 키 생성 (장소 이름과 좌표 모두 포함)
  */
 export const generateDistanceMatrixCacheKey = (locations) => {
-  const coords = locations
-    .map(loc => `${loc.coords?.lat}_${loc.coords?.lng}`)
-    .sort();
-  return `distance_matrix_${coords.join('_')}`;
+  const locationStrings = locations
+    .map(loc => {
+      // 좌표를 반올림하여 정밀도 문제 해결
+      const lat = loc.coords?.lat ? Math.round(loc.coords.lat * 100000) / 100000 : '';
+      const lng = loc.coords?.lng ? Math.round(loc.coords.lng * 100000) / 100000 : '';
+      return `${loc.name || ''}_${lat}_${lng}`;
+    })
+    .sort(); // 일관된 순서 보장
+
+  return `distance_matrix_${locationStrings.join('_')}`;
 };

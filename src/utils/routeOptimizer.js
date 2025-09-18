@@ -399,8 +399,10 @@ export class HybridOptimizer {
     // 캐시에서 거리 행렬 확인
     const cachedMatrix = apiCache.get('distance_matrix', { locations: cacheKey });
     if (cachedMatrix) {
+      console.log('🎯 Cache HIT! Using cached distance matrix');
       return cachedMatrix;
     }
+    console.log('💾 Cache MISS! Computing new distance matrix');
 
     const matrix = Array(n).fill().map(() => Array(n).fill(0));
     const batchSize = 16; // 배치 크기 증가 (성능 최적화)
@@ -660,10 +662,13 @@ export class BranchAndBoundOptimizer {
     // 종료 조건: 모든 지점을 방문한 경우
     if (unvisited.size === 0) {
       const finalCost = currentCost + this.timeMatrix[currentPos][endIndex];
+
+      // 같은 비용이면 첫 번째로 찾은 경로 유지 (일관성 보장)
       if (finalCost < this.bestCost) {
         this.bestCost = finalCost;
         this.bestRoute = [...currentRoute, endIndex];
       }
+
       return;
     }
 
@@ -676,10 +681,18 @@ export class BranchAndBoundOptimizer {
     }
 
     // 다음 방문할 노드들 탐색 (가장 가까운 노드부터 우선 탐색)
+    // 일관된 순서를 위해 비용이 같을 때는 인덱스 기준으로 정렬
     const candidates = Array.from(unvisited).sort((a, b) => {
       const costA = this.timeMatrix[currentPos][a];
       const costB = this.timeMatrix[currentPos][b];
-      return costA - costB;
+
+      // 비용이 다르면 비용 기준 정렬
+      if (costA !== costB) {
+        return costA - costB;
+      }
+
+      // 비용이 같으면 인덱스 기준으로 정렬 (안정성 보장)
+      return a - b;
     });
 
     for (const next of candidates) {
@@ -753,9 +766,13 @@ export class BranchAndBoundOptimizer {
       let minIndex = -1;
 
       for (let j = 0; j < n; j++) {
-        if (!visited.has(j) && distances[j] < minDist) {
-          minDist = distances[j];
-          minIndex = j;
+        if (!visited.has(j)) {
+          const dist = distances[j];
+          // 거리가 같으면 인덱스가 작은 노드 우선 (안정성 보장)
+          if (dist < minDist || (dist === minDist && j < minIndex)) {
+            minDist = dist;
+            minIndex = j;
+          }
         }
       }
 
