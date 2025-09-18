@@ -114,13 +114,24 @@ export const useAppHandlers = (
 
   const handleOptimizeRoute = useCallback(async () => {
     // Filter locations with valid coordinates
-    const validLocations = geocodedLocations.filter(loc =>
-      loc.coords && loc.coords.lat && loc.coords.lng &&
-      !isNaN(loc.coords.lat) && !isNaN(loc.coords.lng)
-    );
+    const validLocations = geocodedLocations.filter(loc => {
+      if (!loc.coords || !loc.coords.lat || !loc.coords.lng) return false;
+      if (isNaN(loc.coords.lat) || isNaN(loc.coords.lng)) return false;
+      // 한국 대략적 범위 검증
+      if (loc.coords.lat < 32 || loc.coords.lat > 40) return false;
+      if (loc.coords.lng < 123 || loc.coords.lng > 133) return false;
+      return true;
+    });
 
     if (validLocations.length < 2) {
       console.warn(`Need at least two valid locations. Currently: ${validLocations.length}`);
+      alert('최소 2개의 유효한 위치가 필요합니다.');
+      return;
+    }
+
+    // 12개 위치 제한 확인
+    if (validLocations.length > 12) {
+      alert(`위치가 너무 많습니다. 최대 12개까지 지원합니다. (현재: ${validLocations.length}개)`);
       return;
     }
 
@@ -132,8 +143,8 @@ export const useAppHandlers = (
     if (waypointCount <= 0) {
       expectedApiCalls = 1;
       method = '직접 계산';
-    } else if (waypointCount <= 8) {
-      // Brute force: 모든 순열에 대해 API 호출
+    } else if (waypointCount <= 3) {
+      // Brute force: 모든 순열에 대해 API 호출 (3개 경유지까지만)
       const permutations = getPermutations(validLocations.slice(1, -1));
       expectedApiCalls = permutations.length;
       method = '완전 탐색';
