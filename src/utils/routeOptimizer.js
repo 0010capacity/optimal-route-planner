@@ -402,7 +402,7 @@ export class HybridOptimizer {
     }
 
     const matrix = Array(n).fill().map(() => Array(n).fill(0));
-    const batchSize = 10; // 배치 크기
+    const batchSize = 16; // 배치 크기 증가 (성능 최적화)
     let apiCallCount = 0;
 
     // 대각선은 0으로 설정
