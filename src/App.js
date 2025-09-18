@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useEffect, useRef, useMemo, useCallback, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { Icon } from './components/Icon';
 import { useSearch } from './hooks/useSearch';
@@ -10,6 +10,7 @@ import { useAppState } from './hooks/useAppState';
 import { useRouteCalculation } from './hooks/useRouteCalculation';
 import { useAppHandlers } from './hooks/useAppHandlers';
 import { WebVitals } from './components/WebVitals';
+import ToastContainer from './components/Toast';
 
 // Dynamic imports for components to avoid SSR issues and enable code splitting
 const LocationList = dynamic(() => import('./components/LocationList'), {
@@ -38,6 +39,17 @@ const Footer = dynamic(() => import('./components/Footer'), {
 });
 
 function App() {
+  const [toasts, setToasts] = useState([]);
+
+  const addToast = useCallback((message, type = 'info', duration = 3000) => {
+    const id = Date.now() + Math.random();
+    setToasts(prev => [...prev, { id, message, type, duration }]);
+  }, []);
+
+  const removeToast = useCallback((id) => {
+    setToasts(prev => prev.filter(toast => toast.id !== id));
+  }, []);
+
   const {
     currentMode,
     editingIndex,
@@ -153,7 +165,8 @@ function App() {
     markersRef,
     mapInstance,
     clearSearch,
-    (progress) => setOptimizationProgress(progress)
+    (progress) => setOptimizationProgress(progress),
+    addToast
   );
 
   // Override handleSearchResultSelect to add recent search functionality
@@ -248,6 +261,8 @@ function App() {
       />
 
       <Footer />
+
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
     </div>
   );
 }

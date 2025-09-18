@@ -18,7 +18,8 @@ export const useAppHandlers = (
   markersRef,
   mapInstance,
   clearSearch,
-  onProgressUpdate
+  onProgressUpdate,
+  onToast
 ) => {
   // Geocoding logic
   const geocodeLocations = useCallback(() => {
@@ -187,7 +188,10 @@ export const useAppHandlers = (
         const minutes = totalMinutes % 60;
         const timeString = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
 
-
+        // Show success toast
+        if (onToast) {
+          onToast('경로 최적화가 완료되었습니다!', 'success');
+        }
 
       } else {
         console.error('Unable to calculate route. Check network connection and try again.');
@@ -201,7 +205,7 @@ export const useAppHandlers = (
         onProgressUpdate({ current: 0, total: 0, message: '' });
       }
     }
-  }, [geocodedLocations, locations, setOptimizedRoute, setIsOptimizing, setDistanceMatrix, updateLocations]);
+  }, [geocodedLocations, locations, setOptimizedRoute, setIsOptimizing, setDistanceMatrix, updateLocations, onToast]);
 
   const handleShareRoute = useCallback(() => {
     const validLocations = geocodedLocations.filter(loc =>
