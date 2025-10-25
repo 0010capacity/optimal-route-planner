@@ -18,6 +18,7 @@ import { useRouteCalculation } from "./hooks/useRouteCalculation";
 import { useAppHandlers } from "./hooks/useAppHandlers";
 import { WebVitals } from "./components/WebVitals";
 import ToastContainer from "./components/Toast";
+import RouteSummary from "./components/RouteSummary";
 
 // Dynamic imports for components to avoid SSR issues and enable code splitting
 const LocationList = dynamic(() => import("./components/LocationList"), {
@@ -310,44 +311,7 @@ function App() {
 
         {/* Info Panel - Route Summary (Desktop Only) */}
         <aside className="info-panel">
-          {optimizedRoute && (
-            <div className="route-summary">
-              <h3>최적화된 경로</h3>
-              <div className="route-stops">
-                {optimizedRoute.route.map((location, index) => (
-                  <div
-                    key={index}
-                    className={`route-stop ${
-                      index === 0
-                        ? "departure"
-                        : index === optimizedRoute.route.length - 1
-                          ? "arrival"
-                          : "waypoint"
-                    }`}
-                  >
-                    <div className="stop-info">
-                      <div className="stop-name">{location.name}</div>
-                      {location.arrivalTime && (
-                        <div className="stop-time">
-                          도착 예정: {location.arrivalTime}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="route-stats">
-                <div>
-                  <span className="time-icon">⏱</span> 총 소요시간:{" "}
-                  {optimizedRoute.totalDuration}
-                </div>
-                <div>
-                  <span className="distance-icon">📍</span> 총 거리:{" "}
-                  {optimizedRoute.totalDistance}
-                </div>
-              </div>
-            </div>
-          )}
+          <RouteSummary optimizedRoute={optimizedRoute} locations={locations} />
         </aside>
       </div>
 

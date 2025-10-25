@@ -1,18 +1,28 @@
-import { useEffect } from 'react';
-import { getDirections } from '../api/naverApi';
+import { useEffect } from "react";
+import { getDirections } from "../api/naverApi";
 
-export const useRouteCalculation = (geocodedLocations, isOptimizing, setOptimizedRoute, optimizedRoute) => {
+export const useRouteCalculation = (
+  geocodedLocations,
+  isOptimizing,
+  setOptimizedRoute,
+  optimizedRoute,
+) => {
   // Automatic route calculation with batch processing - only when no optimized route exists
   useEffect(() => {
     const fetchRoute = async () => {
       // Skip if already optimizing or if optimized route already exists
       // More strict condition: only run when optimizedRoute is null/undefined
       if (isOptimizing || optimizedRoute !== null) {
-        console.log('⏭️ Skipping route calculation - optimization in progress or route already exists');
+        console.log(
+          "⏭️ Skipping route calculation - optimization in progress or route already exists",
+        );
         return;
       }
 
-      console.log('🛣️ Calculating initial route for locations:', geocodedLocations.length);
+      console.log(
+        "🛣️ Calculating initial route for locations:",
+        geocodedLocations.length,
+      );
 
       if (geocodedLocations.length >= 2) {
         // Prepare batch API calls for all segments
@@ -24,7 +34,7 @@ export const useRouteCalculation = (geocodedLocations, isOptimizing, setOptimize
           segmentCalls.push({
             index: i,
             coordsArray: [segmentStart.coords, segmentEnd.coords],
-            namesArray: [segmentStart.name, segmentEnd.name]
+            namesArray: [segmentStart.name, segmentEnd.name],
           });
         }
 
@@ -32,20 +42,29 @@ export const useRouteCalculation = (geocodedLocations, isOptimizing, setOptimize
         const batchSize = 16;
         const segmentResults = new Array(segmentCalls.length);
 
-        for (let batchStart = 0; batchStart < segmentCalls.length; batchStart += batchSize) {
-          const batchEnd = Math.min(batchStart + batchSize, segmentCalls.length);
+        for (
+          let batchStart = 0;
+          batchStart < segmentCalls.length;
+          batchStart += batchSize
+        ) {
+          const batchEnd = Math.min(
+            batchStart + batchSize,
+            segmentCalls.length,
+          );
           const batch = segmentCalls.slice(batchStart, batchEnd);
 
           // Execute batch in parallel
-          const promises = batch.map(async ({ index, coordsArray, namesArray }) => {
-            try {
-              const result = await getDirections(coordsArray, namesArray);
-              return { index, result };
-            } catch (error) {
-              console.warn(`Segment API call failed for ${index}:`, error);
-              return { index, result: null };
-            }
-          });
+          const promises = batch.map(
+            async ({ index, coordsArray, namesArray }) => {
+              try {
+                const result = await getDirections(coordsArray, namesArray);
+                return { index, result };
+              } catch (error) {
+                console.warn(`Segment API call failed for ${index}:`, error);
+                return { index, result: null };
+              }
+            },
+          );
 
           const batchResults = await Promise.all(promises);
 
@@ -56,7 +75,7 @@ export const useRouteCalculation = (geocodedLocations, isOptimizing, setOptimize
 
           // Small delay between batches to prevent API overload
           if (batchEnd < segmentCalls.length) {
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise((resolve) => setTimeout(resolve, 100));
           }
         }
 
@@ -86,13 +105,19 @@ export const useRouteCalculation = (geocodedLocations, isOptimizing, setOptimize
         }
 
         // Calculate total time and distance
-        const totalActualTime = actualSegmentTimes.reduce((sum, time) => sum + time, 0);
-        const totalActualDistance = actualSegmentDistances.reduce((sum, dist) => sum + dist, 0);
+        const totalActualTime = actualSegmentTimes.reduce(
+          (sum, time) => sum + time,
+          0,
+        );
+        const totalActualDistance = actualSegmentDistances.reduce(
+          (sum, dist) => sum + dist,
+          0,
+        );
 
-        console.log('✅ Initial route calculated:', {
+        console.log("✅ Initial route calculated:", {
           segments: actualSegmentTimes.length,
           totalTime: totalActualTime,
-          totalDistance: totalActualDistance
+          totalDistance: totalActualDistance,
         });
 
         setOptimizedRoute({
@@ -102,7 +127,7 @@ export const useRouteCalculation = (geocodedLocations, isOptimizing, setOptimize
           totalTime: totalActualTime,
           totalDistance: totalActualDistance,
           order: geocodedLocations.map((_, index) => index), // Sequential order
-          isInitialRoute: true // Mark as initial route
+          isInitialRoute: true, // Mark as initial route
         });
       } else {
         setOptimizedRoute(null);
@@ -110,5 +135,5 @@ export const useRouteCalculation = (geocodedLocations, isOptimizing, setOptimize
     };
 
     fetchRoute();
-  }, [geocodedLocations, isOptimizing, setOptimizedRoute, optimizedRoute]);
+  }, [geocodedLocations, isOptimizing, setOptimizedRoute]);
 };
