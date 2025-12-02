@@ -3,10 +3,19 @@
  */
 
 // 현재 버전
-export const CURRENT_VERSION = '1.4.0';
+export const CURRENT_VERSION = '1.5.0';
 
 // 패치노트 데이터
 export const PATCH_NOTES = [
+  {
+    version: '1.5.0',
+    date: '2025년 10월 26일',
+    changes: [
+      '🖥️ PC 환경 레이아웃 재정비 - 넓은 화면에서 가독성과 여백 개선',
+      '📊 경로 최적화 이후 실제 시간·거리 재계산으로 요약 정보 정확도 향상',
+      '🔧 최적화된 경로 순서 적용 시 거리 행렬 및 경로 데이터 동기화 개선'
+    ]
+  },
   {
     version: '1.4.0',
     date: '2025년 9월 18일',

@@ -128,6 +128,90 @@ export const useAppHandlers = (
     [setEditingIndex, setCurrentMode, clearSearch],
   );
 
+  const buildDetailedRoute = useCallback(async (orderedLocations) => {
+    if (!orderedLocations || orderedLocations.length < 2) {
+      return null;
+    }
+
+    const segmentCalls = orderedLocations.slice(0, -1).map((loc, index) => ({
+      index,
+      coordsArray: [
+        orderedLocations[index].coords,
+        orderedLocations[index + 1].coords,
+      ],
+      namesArray: [
+        orderedLocations[index].name,
+        orderedLocations[index + 1].name,
+      ],
+    }));
+
+    const segmentResults = new Array(segmentCalls.length);
+    const batchSize = 16;
+
+    for (let batchStart = 0; batchStart < segmentCalls.length; batchStart += batchSize) {
+      const batch = segmentCalls.slice(batchStart, Math.min(batchStart + batchSize, segmentCalls.length));
+      const batchResults = await Promise.all(
+        batch.map(async ({ index, coordsArray, namesArray }) => {
+          try {
+            const result = await getDirections(coordsArray, namesArray);
+            return { index, result };
+          } catch (error) {
+            console.warn(`Detailed segment API call failed for ${index}:`, error);
+            return { index, result: null };
+          }
+        }),
+      );
+
+      batchResults.forEach(({ index, result }) => {
+        segmentResults[index] = result;
+      });
+
+      if (batchStart + batchSize < segmentCalls.length) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+    }
+
+    if (segmentResults.some((res) => !res)) {
+      console.warn("❌ Failed to assemble detailed route from optimized order");
+      return null;
+    }
+
+    let path = [];
+    const segmentTimes = [];
+    const segmentDistances = [];
+    let tollFare = 0;
+    let taxiFare = 0;
+    let fuelPrice = 0;
+
+    segmentResults.forEach((segmentResult, index) => {
+      segmentTimes.push(segmentResult.totalTime);
+      segmentDistances.push(segmentResult.totalDistance);
+      tollFare += segmentResult.tollFare || 0;
+      taxiFare += segmentResult.taxiFare || 0;
+      fuelPrice += segmentResult.fuelPrice || 0;
+
+      if (index === 0) {
+        path = [...segmentResult.path];
+      } else {
+        path = [...path, ...segmentResult.path.slice(1)];
+      }
+    });
+
+    const totalTime = segmentTimes.reduce((sum, value) => sum + value, 0);
+    const totalDistance = segmentDistances.reduce((sum, value) => sum + value, 0);
+
+    return {
+      path,
+      segmentTimes,
+      segmentDistances,
+      totalTime,
+      totalDistance,
+      tollFare,
+      taxiFare,
+      fuelPrice,
+    };
+  }, []);
+
   const handleOptimizeRoute = useCallback(async () => {
     console.log("🔍 Starting route optimization...");
     console.log("📍 Current locations:", locations);
@@ -209,6 +293,10 @@ export const useAppHandlers = (
           apiCalls,
         });
 
+        const orderedValidLocations = optimizedLocations?.length
+          ? optimizedLocations
+          : result.optimizedOrder?.map((idx) => validLocations[idx]) || [];
+
         // Update locations with optimized order
         // geocodedLocations의 순서를 기반으로 locations 재배열
         const newLocations = [...locations];
@@ -258,10 +346,19 @@ export const useAppHandlers = (
         updateLocations(newLocations);
 
         // geocodedLocations는 useAppState의 useEffect에서 자동으로 업데이트됨
-        setDistanceMatrix(result.distanceMatrix);
+        setDistanceMatrix(
+          result.distanceMatrix || result.timeMatrix || null,
+        );
+
+        const orderForDisplay = validIndices.slice(0, orderedValidLocations.length);
+
+        const detailedRoute = await buildDetailedRoute(orderedValidLocations);
 
         // Log results (console only)
-        const totalMinutes = Math.round(routeData.totalTime / 60);
+        const routeSummarySource = detailedRoute
+          ? { ...(routeData || {}), ...detailedRoute }
+          : routeData;
+        const totalMinutes = Math.round(routeSummarySource.totalTime / 60);
         const hours = Math.floor(totalMinutes / 60);
         const minutes = totalMinutes % 60;
         const timeString = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
@@ -269,11 +366,15 @@ export const useAppHandlers = (
         console.log("🎉 Route optimization completed successfully!");
 
         // Update the optimized route state
-        setOptimizedRoute({
-          ...routeData,
-          order: result.optimizedOrder,
-          isInitialRoute: false,
-        });
+        if (routeSummarySource) {
+          setOptimizedRoute({
+            ...routeSummarySource,
+            order: orderForDisplay,
+            isInitialRoute: false,
+          });
+        } else {
+          console.error("No route summary data available after optimization");
+        }
 
         // Show success toast
         if (onToast) {
@@ -301,6 +402,7 @@ export const useAppHandlers = (
     setDistanceMatrix,
     updateLocations,
     onToast,
+    buildDetailedRoute,
   ]);
   const handleShareRoute = useCallback(() => {
     const validLocations = geocodedLocations.filter(

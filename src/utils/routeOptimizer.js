@@ -180,11 +180,17 @@ export class HybridOptimizer {
 
     const result = await getDirections(coordsArray, namesArray, 3, onProgress);
     if (result) {
+      const optimizedOrder = locations.map((_, index) => index);
+      const routeDataWithOrder = {
+        ...result,
+        order: result?.order ?? optimizedOrder,
+      };
       return {
         optimizedLocations: locations,
-        routeData: result,
+        routeData: routeDataWithOrder,
         optimizationMethod: "direct",
         apiCalls: 1,
+        optimizedOrder,
       };
     }
     return null;
@@ -233,6 +239,7 @@ export class HybridOptimizer {
 
     // 경로 포인트는 각 지점의 좌표로 구성
     const path = finalLocations.map((loc) => loc.coords);
+  const optimizedOrder = bbResult.route;
 
     // 구간별 시간과 거리 계산
     const segmentTimes = [];
@@ -255,6 +262,7 @@ export class HybridOptimizer {
       tollFare: 0,
       taxiFare: 0,
       fuelPrice: 0,
+      order: optimizedOrder,
     };
 
     return {
@@ -265,6 +273,7 @@ export class HybridOptimizer {
       nodesExplored: bbResult.nodesExplored,
       duration: bbResult.duration,
       timeMatrix: timeMatrix, // 명확한 시간 매트릭스 명칭
+      optimizedOrder,
     };
   }
 
@@ -334,6 +343,7 @@ export class HybridOptimizer {
 
     // 경로 포인트는 각 지점의 좌표로 구성
     const path = bestRoute.map((loc) => loc.coords);
+  const optimizedOrder = bestRouteIndices;
 
     // 구간별 시간과 거리 계산
     const segmentTimes = [];
@@ -356,6 +366,7 @@ export class HybridOptimizer {
       tollFare: 0,
       taxiFare: 0,
       fuelPrice: 0,
+      order: optimizedOrder,
     };
 
     return {
@@ -365,6 +376,7 @@ export class HybridOptimizer {
       apiCalls: apiCallsForMatrix, // API 호출은 시간 행렬 구축용만
       iterations: filteredPermutations.length,
       distanceMatrix: timeMatrix,
+      optimizedOrder,
     };
   }
 
@@ -426,6 +438,7 @@ export class HybridOptimizer {
       tollFare: 0,
       taxiFare: 0,
       fuelPrice: 0,
+      order: tspResult.route,
     };
 
     return {

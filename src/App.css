@@ -147,6 +147,8 @@
     height: var(--map-height);
     position: relative;
     background: var(--bg-primary);
+    display: flex;
+    flex-direction: column;
 }
 
 /* Info Panel - Desktop Only (Hidden on Mobile) */
@@ -188,12 +190,48 @@
 /* Desktop Layout (1025px+) */
 @media (min-width: 1025px) {
     .app-container {
-        grid-template-columns: var(--sidebar-width) 1fr var(--sidebar-width);
+        grid-template-columns: minmax(320px, var(--sidebar-width)) minmax(680px, 1fr) minmax(320px, var(--sidebar-width));
+        max-width: 1600px;
+        width: 100%;
+        margin: 0 auto;
+        padding: var(--spacing-xlarge);
+        gap: var(--spacing-xlarge);
+        align-items: stretch;
     }
 
     .info-panel {
         display: block;
         height: 100%;
+        position: sticky;
+        top: var(--spacing-xlarge);
+        align-self: flex-start;
+        border-radius: var(--border-radius-large);
+        box-shadow: var(--shadow-medium);
+        border: 1px solid var(--border-color);
+        padding: var(--spacing-xlarge);
+        background: var(--bg-primary);
+    }
+
+    .sidebar {
+        border-right: none;
+        background: transparent;
+        padding: 0;
+        display: flex;
+    }
+
+    .location-list-section {
+        height: 100%;
+        padding: var(--spacing-xlarge);
+        border-radius: var(--border-radius-large);
+        border: 1px solid var(--border-color);
+        box-shadow: var(--shadow-medium);
+        background: var(--bg-primary);
+    }
+
+    .main-content {
+        border-radius: var(--border-radius-large);
+        overflow: hidden;
+        box-shadow: var(--shadow-medium);
     }
 }
 
@@ -526,6 +564,7 @@
     border: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
+    flex: 1;
 }
 
 /* Tablet and Desktop - full height sidebar */
@@ -679,6 +718,8 @@
     position: relative;
     background: var(--bg-primary);
     border: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
 }
 
 /* Map Controls - Responsive Position */
@@ -696,6 +737,11 @@
     .map-controls {
         top: var(--spacing-xlarge);
         bottom: auto;
+    }
+
+    .map-section {
+        margin-top: 0;
+        height: 100%;
     }
 }
 

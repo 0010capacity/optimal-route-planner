@@ -99,6 +99,7 @@ function App() {
   } = useAppState();
 
   const mapRef = useRef(null);
+  const isOptimizingRef = useRef(isOptimizing);
 
   const {
     mapCenter,
@@ -146,19 +147,18 @@ function App() {
       .filter((loc) => loc.coords && loc.coords.lat && loc.coords.lng);
   }, [locations]);
 
+  useEffect(() => {
+    isOptimizingRef.current = isOptimizing;
+  }, [isOptimizing]);
+
   // Update geocoded locations state
   useEffect(() => {
     setGeocodedLocations(memoizedGeocodedLocations);
     // 경유지가 변경되면 최적화된 경로를 리셋 (수동 변경시에만)
-    if (!isOptimizing) {
+    if (!isOptimizingRef.current) {
       setOptimizedRoute(null);
     }
-  }, [
-    memoizedGeocodedLocations,
-    setGeocodedLocations,
-    setOptimizedRoute,
-    isOptimizing,
-  ]);
+  }, [memoizedGeocodedLocations, setGeocodedLocations, setOptimizedRoute]);
 
   // Use route calculation hook - only when no optimized route exists
   useRouteCalculation(

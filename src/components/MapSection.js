@@ -17,7 +17,33 @@ const MapSection = memo(({ mapRef, onGetCurrentLocation, isGettingLocation }) =>
 
     if (typeof window !== 'undefined') {
       const updateHeight = () => {
-        setMapHeight(window.innerWidth <= 768 ? '300px' : '400px');
+        const viewportWidth = window.innerWidth;
+
+        if (viewportWidth <= 768) {
+          setMapHeight('320px');
+          return;
+        }
+
+        if (viewportWidth <= 1024) {
+          const viewportHeight = window.innerHeight;
+          const calculatedHeight = Math.min(
+            Math.max(viewportHeight - 220, 420),
+            640,
+          );
+          setMapHeight(`${calculatedHeight}px`);
+          return;
+        }
+
+  const viewportHeight = window.innerHeight;
+        const isLargeDesktop = viewportWidth >= 1440;
+  const desktopPadding = isLargeDesktop ? 180 : 240;
+  const maxHeight = isLargeDesktop ? 920 : 780;
+        const calculatedHeight = Math.min(
+          Math.max(viewportHeight - desktopPadding, 480),
+          maxHeight,
+        );
+
+        setMapHeight(`${calculatedHeight}px`);
       };
       updateHeight();
       window.addEventListener('resize', updateHeight);
@@ -43,7 +69,7 @@ const MapSection = memo(({ mapRef, onGetCurrentLocation, isGettingLocation }) =>
         <div
           style={{
             width: '100%',
-            height: '400px',
+            height: mapHeight,
             backgroundColor: '#f0f0f0',
             display: 'flex',
             alignItems: 'center',
