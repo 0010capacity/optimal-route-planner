@@ -1,4 +1,5 @@
 import '../App.css';
+import '../index.css';
 import { useEffect } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAnalytics } from 'firebase/analytics';
