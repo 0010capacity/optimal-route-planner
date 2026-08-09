@@ -8,11 +8,6 @@
  * 알고리즘 분기:
  *   - 경유지 0개 (출발/도착만): 1회 API 호출로 직행 경로 산출 (direct)
  *   - 경유지 1개 이상: 비대칭 거리 행렬(n(n-1)회) + Branch and Bound + 최종 경로 1회
- *
- * 비대칭 행렬을 쓰므로 MST 기반 하한(LB)은 비대칭에서 valid하지 않다.
- * 본 구현의 LB는 단순 · 안전한 형태: unvisited 노드 각각에서 가장 싼
- * outgoing edge와 끝점까지의 비용 합. 과대평가할 위험이 없으므로
- * 가지치기 안전성이 보장된다.
  */
 
 import { performanceMonitor } from './performanceMonitor.js';
@@ -37,12 +32,24 @@ export const calculateEuclideanDistance = (coord1, coord2) => {
 };
 
 /**
- * 비대칭 TSP를 위한 Branch and Bound.
+ * 비대칭 TSP Branch and Bound.
  *
- * 시작/끝 노드 고정, 가운데 노드들의 최적 순열을 탐색한다.
- * LB(lower bound)는 각 unvisited 노드에서 가능한 가장 싼 outgoing 비용의 합.
- * 이 LB는 실제 비용보다 작거나 같음이 보장되어(LB ≤ 실제 최적해),
- * LB ≥ bestCost일 때 가지치기하면 최적해를 절대 놓치지 않는다.
+ * LB(lower bound)는 각 unvisited 노드 u에 대해
+ *   min(distanceMatrix[u][v] for v ∈ unvisited, v ≠ u) 와
+ *   distanceMatrix[u][endIndex]
+ * 의 min의 합, 그리고 currentPos에서 다음 한 번의 이동 비용의 min
+ * (unvisited 안의 가장 싼 edge).
+ *
+ * valid성 증명:
+ *   - 각 unvisited u는 Hamiltonian path에서 정확히 한 번 빠져나간다.
+ *     그 edge의 도착점은 다른 unvisited 노드이거나 endIndex다.
+ *     따라서 실제 비용 ≥ min(within-unvisited, to-end).
+ *   - currentPos에서 다음 한 번의 이동 도착점은 unvisited 안의 노드다
+ *     (unvisited가 비어있지 않으면 endIndex로 직행은 invalid).
+ *     따라서 실제 비용 ≥ min over v ∈ unvisited d[currentPos][v].
+ *
+ * 가지치기: `currentCost + lowerBound ≥ bestCost`이면 부분 경로의
+ * 어떤 completion도 bestCost보다 작을 수 없으므로 컷.
  */
 export class BranchAndBoundOptimizer {
   constructor(distanceMatrix, locations) {
@@ -110,9 +117,10 @@ export class BranchAndBoundOptimizer {
     }
 
     // 가지치기 2: 비대칭-valid LB로 컷
+    // LB는 *남은* 비용의 하한이므로 누적 비용과 함께 비교한다.
     if (this.bestCost !== Infinity) {
       const lowerBound = this.calculateLowerBound(currentPos, unvisited, endIndex);
-      if (lowerBound >= this.bestCost) {
+      if (currentCost + lowerBound >= this.bestCost) {
         return;
       }
     }
@@ -131,30 +139,43 @@ export class BranchAndBoundOptimizer {
   }
 
   /**
-   * 비대칭 TSP에서 valid한 LB.
+   * 비대칭 TSP에서 valid한 LB (남은 경로 비용의 하한).
    *
-   * 각 unvisited 노드 u에 대해:
-   *   - min over v∈(unvisited ∪ {currentPos, endIndex}) of distanceMatrix[u][v] ... (1)
-   * 단, (1)만으로는 시작점 이후로 다시 u로 돌아갈 수 없는 경로가 있을 수 있어
-   * 약한 bound가 된다. 그러나 LB ≤ 실제 최적해가 보장되므로 가지치기 안전.
+   * - 각 unvisited u의 실제 leaving edge 도착점은 (다른 unvisited 노드 또는 endIndex).
+   *   따라서 그 비용 ≥ min(within-unvisited, to-end).
+   * - currentPos의 실제 다음 도착점은 unvisited 안의 노드 (unvisited ≠ ∅일 때).
+   *   따라서 그 비용 ≥ min over v ∈ unvisited d[currentPos][v].
    *
-   * 추가로 끝점까지의 비용 distanceMatrix[currentPos][endIndex]를 더한다.
+   * sum이 LB ≤ 실제 남은 비용임이 보장된다.
    */
   calculateLowerBound(currentPos, unvisited, endIndex) {
+    if (unvisited.size === 0) return 0;
+
+    // currentPos → 다음: unvisited 중 가장 싼 edge
+    let firstStepMin = Infinity;
+    for (const v of unvisited) {
+      if (this.distanceMatrix[currentPos][v] < firstStepMin) {
+        firstStepMin = this.distanceMatrix[currentPos][v];
+      }
+    }
+
+    // 각 unvisited u → 한 번 빠져나가기: min(within-unvisited, to-end)
     let outgoingSum = 0;
     for (const u of unvisited) {
-      let minOut = Infinity;
+      let withinMin = Infinity;
       for (const v of unvisited) {
-        if (u === v) continue;
-        if (this.distanceMatrix[u][v] < minOut) minOut = this.distanceMatrix[u][v];
+        if (u !== v && this.distanceMatrix[u][v] < withinMin) {
+          withinMin = this.distanceMatrix[u][v];
+        }
       }
-      // unvisited에서 outgoing이 없으면 endIndex로의 비용도 후보
-      const toEnd = this.distanceMatrix[u][endIndex];
-      outgoingSum += Math.min(minOut, toEnd);
+      // withinMin이 Infinity이면 unvisited = {u}인 경우. 이때는 endIndex로 가는 비용이 leaving 비용의 하한.
+      // 그 외에는 min(withinMin, to-end).
+      outgoingSum += withinMin === Infinity
+        ? this.distanceMatrix[u][endIndex]
+        : Math.min(withinMin, this.distanceMatrix[u][endIndex]);
     }
-    // 시작 위치 → endIndex 비용 (이미 카운트된 마지막 이동)
-    const tailToEnd = this.distanceMatrix[currentPos][endIndex];
-    return outgoingSum + tailToEnd;
+
+    return outgoingSum + firstStepMin;
   }
 }
 
